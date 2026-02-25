@@ -57,8 +57,16 @@ so you can see what the plots look like without running anything.
 
 ### “Could this constrain the IMF?” (toy)
 
-This is a *very optimistic* signal-only calculation: it tells you how big a detector would need to be
-to separate two IMFs **if** backgrounds could be suppressed well enough.
+This is a toy “IMF discriminability” calculation for the **Kroupa / top-light / top-heavy** IMFs.
+It estimates how large a detector would need to be to separate two IMF hypotheses at a chosen
+significance after a chosen exposure time.
+
+It supports two modes:
+- **signal-only** (set background to zero): optimistic upper limit
+- **background-limited** (background ∝ detector mass): more realistic scaling for MeV detectors
+
+Backgrounds are parameterized as an **effective residual background rate** in
+`events / (kton * year)` (after whatever cuts you assume). Set it to `0.0` to remove backgrounds.
 
 ![](figures/imf_constraint_required_mass.png)
 

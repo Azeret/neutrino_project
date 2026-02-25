@@ -114,7 +114,13 @@ class Config:
     reference_distance_pc: float = 200.0
     constraint_exposure_years: float = 10.0
     constraint_z_sigma: float = 3.0
-    constraint_background_per_year: float = 0.0
+    constraint_imfs: tuple[str, ...] = ("kroupa", "top-light", "top-heavy")
+    constraint_method: str = "asimov"  # "asimov" (LLR) or "gaussian"
+    constraint_include_background: bool = True
+    # Background model: background scales linearly with detector mass (kton).
+    # This is an "effective" residual background after cuts, in events per (kton*year).
+    # Set to 0.0 (or constraint_include_background=False) to remove backgrounds entirely.
+    constraint_background_per_kton_year: float = 1.0
 
     # Optional: isochrone file for the HR plot (included in this repo)
     isochrone_dat: Path = Path("data/parsec/isochrones/parsec_cmd39_v1p2s_Z0p0152_logAge7p0.dat")
@@ -281,17 +287,23 @@ def main() -> None:
         # Question: if detection were feasible, could the rate constrain the IMF?
         # Here we compute a simple required detector mass (kton water-equivalent)
         # to separate IMF pairs at z_sigma after an exposure.
+        #
+        # Important: this treats the SFR and the phase-window model as fixed inputs.
+        # In a more complete analysis they would be inferred jointly (with EM priors, e.g. Gaia),
+        # which can reduce or increase IMF discriminability depending on degeneracies.
         out_matrix_csv = CFG.out_dir / "imf_constraint_required_mass.csv"
         out_matrix_png = CFG.out_dir / "imf_constraint_required_mass.png"
 
         det = default_future_detector()
         res_list, mat = imf_constraint_matrix(
             phases_csv=CFG.phases_csv,
-            imfs=list(CFG.imfs),
+            imfs=list(CFG.constraint_imfs),
             detector=det,
             exposure_years=CFG.constraint_exposure_years,
             z_sigma=CFG.constraint_z_sigma,
-            background_per_year=CFG.constraint_background_per_year,
+            include_background=CFG.constraint_include_background,
+            background_per_kton_year=CFG.constraint_background_per_kton_year,
+            method=CFG.constraint_method,
             sfr_msun_per_yr=CFG.sfr_msun_per_yr,
             t_obs_myr=CFG.duration_myr,
             radius_kpc=CFG.radius_kpc,
@@ -312,9 +324,12 @@ def main() -> None:
                 fieldnames=[
                     "imf_a",
                     "imf_b",
+                    "method",
                     "detector_name",
                     "exposure_years",
                     "z_sigma",
+                    "include_background",
+                    "background_per_kton_year",
                     "base_background_per_year",
                     "base_mass_kton",
                     "base_rate_a_per_year",
@@ -337,15 +352,16 @@ def main() -> None:
 
         fig, ax = plt.subplots(figsize=(6.6, 5.6))
         # Use log10 scale for readability; cap huge values.
-        mat_plot = np.log10(np.clip(mat, 1.0, 1e9))
+        mat_plot = np.log10(np.clip(mat, 1e-3, 1e13))
         im = ax.imshow(mat_plot, cmap="viridis")
-        ax.set_xticks(range(len(CFG.imfs)))
-        ax.set_yticks(range(len(CFG.imfs)))
-        ax.set_xticklabels(list(CFG.imfs), rotation=30, ha="right")
-        ax.set_yticklabels(list(CFG.imfs))
+        ax.set_xticks(range(len(CFG.constraint_imfs)))
+        ax.set_yticks(range(len(CFG.constraint_imfs)))
+        ax.set_xticklabels(list(CFG.constraint_imfs), rotation=30, ha="right")
+        ax.set_yticklabels(list(CFG.constraint_imfs))
         ax.set_title(
             f"Required detector mass to separate IMFs (toy, ES-only)\n"
-            f"{det.name}, T={CFG.constraint_exposure_years:g} yr, z={CFG.constraint_z_sigma:g}"
+            f"{det.name}, T={CFG.constraint_exposure_years:g} yr, z={CFG.constraint_z_sigma:g}, "
+            f"method={CFG.constraint_method}"
         )
         cbar = fig.colorbar(im, ax=ax)
         cbar.set_label("log10(required mass [kton])")
