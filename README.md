@@ -95,6 +95,8 @@ This project computes a **signal-only** (background-free) elastic-scattering est
 
 Important: **backgrounds, thresholds, efficiencies are not included**, so these event rates should only be used for scaling comparisons (e.g. between IMFs or detector masses).
 
+The detector list is intentionally “hopeful”: it includes concepts like THEIA-like WbLS detector masses. In this toy ES-only model, larger fiducial mass always increases signal linearly, but real detectability is usually background-limited at sub-MeV energies.
+
 ## Data files
 
 The repo includes small precomputed phase-window tables:

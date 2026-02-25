@@ -109,6 +109,7 @@ class Config:
     alpha: float = 2.0
     detector_kton: float = 22.5
     inv_d2_samples: int = 100_000
+    reference_distance_pc: float = 200.0
 
     # Optional: isochrone file for the HR plot (included in this repo)
     isochrone_dat: Path = Path("data/parsec/isochrones/parsec_cmd39_v1p2s_Z0p0152_logAge7p0.dat")
@@ -173,8 +174,13 @@ def main() -> None:
     if CFG.make_detectability_table:
         out_det_csv = CFG.out_dir / "detectability_imf.csv"
         dets = detector_presets()
-        # Keep the first detector label but use the configured fiducial mass.
-        dets = [dets[0].__class__(name=f"SK-like ({CFG.detector_kton:g} kt)", fiducial_mass_kton=CFG.detector_kton), *dets[1:]]
+        # Override the SK-like mass from CONFIG while keeping the rest of the preset list.
+        dets = [
+            d.__class__(name=f"SK-like ({CFG.detector_kton:g} kt)", fiducial_mass_kton=CFG.detector_kton)
+            if d.name.startswith("SK-like")
+            else d
+            for d in dets
+        ]
 
         import csv
 
@@ -194,6 +200,7 @@ def main() -> None:
                 mean_energy_mev=CFG.mean_energy_mev,
                 alpha=CFG.alpha,
                 detector_list=dets,
+                reference_distance_pc=CFG.reference_distance_pc,
             )
             rows.append(r)
 
@@ -207,7 +214,10 @@ def main() -> None:
                 "n_cburn_rsg_mw",
                 "n_cburn_rsg_within",
                 "flux_within_cm2_s",
+                "reference_distance_pc",
+                "flux_one_star_at_refdist_cm2_s",
                 *[f"events_per_year__{d.name}" for d in dets],
+                *[f"events_per_year__one_star_at_refdist__{d.name}" for d in dets],
             ]
             w = csv.DictWriter(f, fieldnames=fieldnames)
             w.writeheader()
@@ -220,9 +230,12 @@ def main() -> None:
                     "n_cburn_rsg_mw": f"{r.n_cburn_rsg_mw:.6g}",
                     "n_cburn_rsg_within": f"{r.n_cburn_rsg_within:.6g}",
                     "flux_within_cm2_s": f"{r.flux_within_cm2_s:.6g}",
+                    "reference_distance_pc": f"{CFG.reference_distance_pc:.6g}",
+                    "flux_one_star_at_refdist_cm2_s": f"{r.flux_one_star_at_refdist_cm2_s:.6g}",
                 }
                 for d in dets:
                     row[f"events_per_year__{d.name}"] = f"{r.events_per_year_by_detector[d.name]:.6g}"
+                    row[f"events_per_year__one_star_at_refdist__{d.name}"] = f"{r.events_per_year_one_star_at_refdist[d.name]:.6g}"
                 w.writerow(row)
 
         print(f"Saved: {out_det_csv}")
@@ -238,8 +251,8 @@ def main() -> None:
 
             out_det_png = CFG.out_dir / "detectability_imf_events.png"
             xs = np.arange(len(CFG.imfs))
-            width = 0.22
-            fig, ax = plt.subplots(figsize=(8.4, 4.6))
+            width = min(0.16, 0.8 / max(1, len(dets)))
+            fig, ax = plt.subplots(figsize=(9.6, 4.8))
 
             for j, d in enumerate(dets):
                 y = [r.events_per_year_by_detector[d.name] for r in rows]
@@ -252,7 +265,7 @@ def main() -> None:
             ax.axhline(1.0, color="0.5", lw=1.0, ls="--")
             ax.text(xs[0] - 0.4, 1.15, "≈1 event/yr", color="0.4", fontsize=8)
             ax.set_title(f"Detectability vs IMF (within {CFG.radius_kpc:g} kpc)")
-            ax.legend(frameon=False, fontsize=8)
+            ax.legend(frameon=False, fontsize=7, ncol=2)
             fig.tight_layout()
             fig.savefig(out_det_png, dpi=200)
             plt.close(fig)

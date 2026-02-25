@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 
 from .galaxy import MWYoungSFParams, estimate_within_probability, sample_mw_young_xy
-from .neutrinos import Detector, NeutrinoSpectrumModel, estimate_es_events_per_year
+from .neutrinos import Detector, NeutrinoSpectrumModel, estimate_es_events_per_year, flux_from_luminosity
 from .population import expected_counts_vs_time
 
 
@@ -31,9 +31,15 @@ def detector_presets() -> list[DetectorPreset]:
     - This is *not* detector modeling. It's just target scaling for ES.
     - Backgrounds, thresholds, efficiencies are not included.
     """
+    # Masses are water-equivalent fiducial masses for an ES-only toy estimate.
     return [
+        DetectorPreset(name="Borexino-like (0.3 kt)", fiducial_mass_kton=0.3),
+        DetectorPreset(name="KamLAND-like (1 kt)", fiducial_mass_kton=1.0),
+        DetectorPreset(name="JUNO-like (20 kt)", fiducial_mass_kton=20.0),
         DetectorPreset(name="SK-like (22.5 kt)", fiducial_mass_kton=22.5),
+        DetectorPreset(name="THEIA-like (50 kt, concept)", fiducial_mass_kton=50.0),
         DetectorPreset(name="Hyper-K-like (187 kt)", fiducial_mass_kton=187.0),
+        DetectorPreset(name="THEIA-like (100 kt, concept)", fiducial_mass_kton=100.0),
         DetectorPreset(name="1 Mt water (toy)", fiducial_mass_kton=1000.0),
     ]
 
@@ -99,6 +105,8 @@ class DetectabilityAtTime:
     n_cburn_rsg_within: float
     flux_within_cm2_s: float
     events_per_year_by_detector: dict[str, float]
+    flux_one_star_at_refdist_cm2_s: float
+    events_per_year_one_star_at_refdist: dict[str, float]
 
 
 def estimate_detectability_at_time(
@@ -117,6 +125,7 @@ def estimate_detectability_at_time(
     alpha: float = 2.0,
     detector_list: list[DetectorPreset] | None = None,
     flavor: str = "nue",
+    reference_distance_pc: float = 200.0,
 ) -> DetectabilityAtTime:
     """
     Pipeline:
@@ -177,6 +186,24 @@ def estimate_detectability_at_time(
             )
         )
 
+    # Per-star reference (useful for comparing with neutrinos.pdf's ~200 pc example).
+    flux_one = flux_from_luminosity(
+        lnu_erg_s=lnu_per_star_erg_s,
+        mean_energy_mev=mean_energy_mev,
+        distance_pc=reference_distance_pc,
+    )
+    events_one = {}
+    for preset in dets:
+        det = preset.to_detector()
+        events_one[det.name] = float(
+            estimate_es_events_per_year(
+                flux_at_earth_cm2_s=float(flux_one),
+                detector=det,
+                spectrum=spec,
+                flavor=flavor,
+            )
+        )
+
     return DetectabilityAtTime(
         t_myr=float(t_obs_myr),
         p_within=float(p_within),
@@ -184,4 +211,6 @@ def estimate_detectability_at_time(
         n_cburn_rsg_within=n_within,
         flux_within_cm2_s=float(flux),
         events_per_year_by_detector=events,
+        flux_one_star_at_refdist_cm2_s=float(flux_one),
+        events_per_year_one_star_at_refdist=events_one,
     )

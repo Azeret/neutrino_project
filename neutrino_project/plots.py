@@ -434,12 +434,13 @@ def plot_neutrino_yield_vs_time(
 
     spec = NeutrinoSpectrumModel.alpha_fit(mean_energy_mev=mean_energy_mev, alpha=alpha)
 
-    # Compare a few detector scales (toy, ES-only).
+    # Compare several detector scales (toy, ES-only).
     detectors = detector_presets()
-    # Override the SK-like mass from the function argument while keeping the same label format.
     detectors = [
-        detectors[0].__class__(name=f"SK-like ({detector_kton:g} kt)", fiducial_mass_kton=float(detector_kton)),
-        *detectors[1:],
+        d.__class__(name=f"SK-like ({detector_kton:g} kt)", fiducial_mass_kton=float(detector_kton))
+        if d.name.startswith("SK-like")
+        else d
+        for d in detectors
     ]
     events_by_det = {
         det.to_detector().name: np.array(
@@ -466,9 +467,18 @@ def plot_neutrino_yield_vs_time(
     ax1.set_yscale("log")
 
     ax2 = ax1.twinx()
-    colors = ["#1f77b4", "#ff7f0e", "#2ca02c"]
+    colors = [
+        "#1f77b4",
+        "#ff7f0e",
+        "#2ca02c",
+        "#d62728",
+        "#9467bd",
+        "#8c564b",
+        "#e377c2",
+        "#7f7f7f",
+    ]
     for (name, ev), c in zip(events_by_det.items(), colors, strict=False):
-        ax2.plot(t, ev, color=c, lw=2, label=f"{name}: ES events/year")
+        ax2.plot(t, ev, color=c, lw=1.8, label=f"{name}")
     ax2.axhline(1.0, color="0.5", lw=1.0, ls="--")
     ax2.text(t_max_myr * 0.02, 1.2, "≈1 event/yr", color="0.4", fontsize=8)
     ax2.set_ylabel("Toy ES events/year")
@@ -484,7 +494,7 @@ def plot_neutrino_yield_vs_time(
         l, lab = ax.get_legend_handles_labels()
         lines += l
         labels += lab
-    ax1.legend(lines, labels, frameon=False, fontsize=7.8, loc="upper left")
+    ax1.legend(lines, labels, frameon=False, fontsize=7.4, loc="upper left")
     fig.tight_layout()
     fig.savefig(out_png, dpi=200)
     plt.close(fig)
