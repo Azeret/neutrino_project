@@ -29,6 +29,31 @@ If you get `ModuleNotFoundError` (e.g. missing `numpy`), install dependencies:
 pip install -r requirements.txt
 ```
 
+## Example plots (already generated)
+
+The folder `figures/` contains example outputs for the default `run_pipeline.py` CONFIG,
+so you can see what the plots look like without running anything.
+
+### 2D Milky Way snapshot (toy)
+
+![](figures/mw_snapshot_map.png)
+
+### Counts within 1 kpc vs time (toy)
+
+![](figures/counts_within_radius_vs_time.png)
+
+### Toy neutrino flux + events vs time
+
+![](figures/toy_neutrino_yield_vs_time.png)
+
+### Phase-window illustration (one mass)
+
+![](figures/phase_timeline_18msun.png)
+
+### Isochrone HR diagram + RSG cut (pedagogical)
+
+![](figures/isochrone_hrd_rsg_cut.png)
+
 ## What “C-burning RSG” means in this project
 
 We define:
