@@ -41,6 +41,7 @@ from neutrino_project.plots import (
     plot_neutrino_yield_vs_time,
     plot_phase_timeline,
 )
+from neutrino_project.detectability import detector_presets, estimate_detectability_at_time
 from neutrino_project.population import run_imf_scan
 
 
@@ -98,6 +99,8 @@ class Config:
     make_phase_timeline: bool = True
     make_isochrone_plot: bool = True
     make_track_hrd_example: bool = True
+    make_detectability_table: bool = True
+    make_detectability_plot: bool = True
 
     # Neutrino toy parameters used in the time-evolution plot
     # (order-of-magnitude only; for a paper-level model see neutrino_project/neutrinos.py)
@@ -105,6 +108,7 @@ class Config:
     mean_energy_mev: float = 0.9
     alpha: float = 2.0
     detector_kton: float = 22.5
+    inv_d2_samples: int = 100_000
 
     # Optional: isochrone file for the HR plot (included in this repo)
     isochrone_dat: Path = Path("data/parsec/isochrones/parsec_cmd39_v1p2s_Z0p0152_logAge7p0.dat")
@@ -165,6 +169,95 @@ def main() -> None:
     )
     print(f"Saved: {out_csv}")
     print(f"Saved: {out_plot}")
+
+    if CFG.make_detectability_table:
+        out_det_csv = CFG.out_dir / "detectability_imf.csv"
+        dets = detector_presets()
+        # Keep the first detector label but use the configured fiducial mass.
+        dets = [dets[0].__class__(name=f"SK-like ({CFG.detector_kton:g} kt)", fiducial_mass_kton=CFG.detector_kton), *dets[1:]]
+
+        import csv
+
+        rows = []
+        for imf in CFG.imfs:
+            r = estimate_detectability_at_time(
+                phases_csv=CFG.phases_csv,
+                imf=imf,
+                sfr_msun_per_yr=CFG.sfr_msun_per_yr,
+                t_obs_myr=CFG.duration_myr,
+                radius_kpc=CFG.radius_kpc,
+                sun_xy_kpc=(CFG.sun_x_kpc, CFG.sun_y_kpc),
+                within_samples=CFG.within_samples,
+                inv_d2_samples=CFG.inv_d2_samples,
+                seed=CFG.seed,
+                lnu_per_star_erg_s=CFG.lnu_per_star_erg_s,
+                mean_energy_mev=CFG.mean_energy_mev,
+                alpha=CFG.alpha,
+                detector_list=dets,
+            )
+            rows.append(r)
+
+        out_det_csv.parent.mkdir(parents=True, exist_ok=True)
+        with out_det_csv.open("w", newline="") as f:
+            fieldnames = [
+                "imf",
+                "t_myr",
+                "radius_kpc",
+                "p_within",
+                "n_cburn_rsg_mw",
+                "n_cburn_rsg_within",
+                "flux_within_cm2_s",
+                *[f"events_per_year__{d.name}" for d in dets],
+            ]
+            w = csv.DictWriter(f, fieldnames=fieldnames)
+            w.writeheader()
+            for imf, r in zip(CFG.imfs, rows, strict=True):
+                row = {
+                    "imf": imf,
+                    "t_myr": f"{r.t_myr:.6g}",
+                    "radius_kpc": f"{CFG.radius_kpc:.6g}",
+                    "p_within": f"{r.p_within:.6g}",
+                    "n_cburn_rsg_mw": f"{r.n_cburn_rsg_mw:.6g}",
+                    "n_cburn_rsg_within": f"{r.n_cburn_rsg_within:.6g}",
+                    "flux_within_cm2_s": f"{r.flux_within_cm2_s:.6g}",
+                }
+                for d in dets:
+                    row[f"events_per_year__{d.name}"] = f"{r.events_per_year_by_detector[d.name]:.6g}"
+                w.writerow(row)
+
+        print(f"Saved: {out_det_csv}")
+
+        if CFG.make_detectability_plot:
+            import os
+
+            tmp = Path(os.environ.get("TMPDIR", "/tmp"))
+            Path(os.environ.setdefault("MPLCONFIGDIR", str(tmp / "matplotlib"))).mkdir(parents=True, exist_ok=True)
+            Path(os.environ.setdefault("XDG_CACHE_HOME", str(tmp / "xdg_cache"))).mkdir(parents=True, exist_ok=True)
+            import matplotlib.pyplot as plt
+            import numpy as np
+
+            out_det_png = CFG.out_dir / "detectability_imf_events.png"
+            xs = np.arange(len(CFG.imfs))
+            width = 0.22
+            fig, ax = plt.subplots(figsize=(8.4, 4.6))
+
+            for j, d in enumerate(dets):
+                y = [r.events_per_year_by_detector[d.name] for r in rows]
+                ax.bar(xs + (j - (len(dets) - 1) / 2) * width, y, width=width, label=d.name)
+
+            ax.set_xticks(xs)
+            ax.set_xticklabels(list(CFG.imfs), rotation=0)
+            ax.set_ylabel("Toy ES events/year (signal-only)")
+            ax.set_yscale("log")
+            ax.axhline(1.0, color="0.5", lw=1.0, ls="--")
+            ax.text(xs[0] - 0.4, 1.15, "≈1 event/yr", color="0.4", fontsize=8)
+            ax.set_title(f"Detectability vs IMF (within {CFG.radius_kpc:g} kpc)")
+            ax.legend(frameon=False, fontsize=8)
+            fig.tight_layout()
+            fig.savefig(out_det_png, dpi=200)
+            plt.close(fig)
+
+            print(f"Saved: {out_det_png}")
 
     # Extra plots (all optional, controlled by CONFIG flags)
     if CFG.make_mw_map:

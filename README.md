@@ -20,6 +20,8 @@ Outputs are written to `outputs/`:
 - `outputs/mw_snapshot_map.png`: 2D toy Milky Way snapshot (phase-colored)
 - `outputs/counts_within_radius_vs_time.png`: expected counts vs time (whole MW + within 1 kpc)
 - `outputs/toy_neutrino_yield_vs_time.png`: toy flux + toy ES event-rates vs time (SK-like vs future scales)
+- `outputs/detectability_imf.csv`: per-IMF toy conversion: counts → flux → ES events/year (within 1 kpc)
+- `outputs/detectability_imf_events.png`: bar plot of toy ES events/year vs IMF (several detector masses)
 - `outputs/phase_timeline_18msun.png`: how phase windows are estimated for one mass
 - `outputs/isochrone_hrd_rsg_cut.png`: CMD 3.9 isochrone HR diagram + RSG cut (pedagogical)
 - `outputs/track_hrd_18msun.png`: PARSEC track HR diagram with RSG + C-burning highlighted (only if ZIP is present)
@@ -47,6 +49,10 @@ so you can see what the plots look like without running anything.
 
 ![](figures/toy_neutrino_yield_vs_time.png)
 
+### Detectability vs IMF (toy)
+
+![](figures/detectability_imf_events.png)
+
 ### Phase-window illustration (one mass)
 
 ![](figures/phase_timeline_18msun.png)
@@ -71,6 +77,23 @@ We define:
 - **C-burning RSG**: overlap of the above two conditions
 
 These definitions are intentionally simple and are meant for sensitivity studies.
+
+## How “events/year” is computed (toy)
+
+This project computes a **signal-only** (background-free) elastic-scattering estimate:
+
+1) From SFR + IMF + phase durations, estimate the expected number of C-burning RSGs:
+   - in the whole Milky Way: `N_CburnRSG(MW)`
+   - within a sphere around the Sun: `N_CburnRSG(<R)`
+2) Convert to a local number flux at Earth assuming each star has the same neutrino luminosity `Lν`:
+
+   `Φ_total ≈ N_CburnRSG(<R) × (Lν/<E>) × (1/(4π)) × <1/d² | d≤R>`
+
+3) Convert flux to a toy ES rate:
+
+   `events/year = N_e × ∫ dE [ Φ_total f(E) ] σ_ES(E)`
+
+Important: **backgrounds, thresholds, efficiencies are not included**, so these event rates should only be used for scaling comparisons (e.g. between IMFs or detector masses).
 
 ## Data files
 

@@ -4,11 +4,12 @@ from pathlib import Path
 
 import numpy as np
 
+from .detectability import detector_presets, mean_inv_d2_within_radius, one_star_flux_cm2_s
 from .parsec_v2_vms import load_track_arrays
 from .population import expected_counts_vs_time, load_phases_csv, simulate_snapshot_catalog
 
 
-_KPC_TO_CM = 3.085677581e21
+_MEV_TO_ERG = 1.602176634e-6
 
 
 def _ensure_matplotlib_cache_dirs() -> None:
@@ -370,18 +371,13 @@ def _mean_inv_d2_within_radius(
     sun_xy_kpc: tuple[float, float],
     seed: int,
 ) -> float:
-    from .galaxy import MWYoungSFParams, sample_mw_young_xy
-
-    rng = np.random.default_rng(seed)
-    p = MWYoungSFParams()
-    x, y = sample_mw_young_xy(n_samples, rng, p)
-    sx, sy = sun_xy_kpc
-    d_kpc = np.sqrt((x - sx) ** 2 + (y - sy) ** 2)
-    sel = d_kpc <= radius_kpc
-    if not np.any(sel):
-        return float("nan")
-    d_cm = np.clip(d_kpc[sel] * _KPC_TO_CM, 0.05 * _KPC_TO_CM, None)  # avoid 1/d^2 divergence at d->0
-    return float(np.mean(1.0 / (d_cm * d_cm)))
+    # Backward-compatible wrapper (this used to live here).
+    return mean_inv_d2_within_radius(
+        n_samples=n_samples,
+        radius_kpc=radius_kpc,
+        sun_xy_kpc=sun_xy_kpc,
+        seed=seed,
+    )
 
 
 def plot_neutrino_yield_vs_time(
@@ -424,28 +420,37 @@ def plot_neutrino_yield_vs_time(
     )
     n_cburn_rsg_within = d["cburn_rsg_within"]
 
-    inv_d2 = _mean_inv_d2_within_radius(
+    inv_d2 = mean_inv_d2_within_radius(
         n_samples=max(50_000, within_samples // 2),
         radius_kpc=radius_kpc,
         sun_xy_kpc=sun_xy_kpc,
         seed=seed + 999,
     )
-    # Expected *number* flux from one star: (L/<E>)/(4π) * <1/d^2>
-    e_erg = mean_energy_mev * 1.602176634e-6
-    one_star_flux = (lnu_per_star_erg_s / e_erg) * (inv_d2 / (4.0 * np.pi))
-    flux = n_cburn_rsg_within * one_star_flux
+    flux = n_cburn_rsg_within * one_star_flux_cm2_s(
+        lnu_erg_s=lnu_per_star_erg_s,
+        mean_energy_mev=mean_energy_mev,
+        inv_d2_cm2=inv_d2,
+    )
 
     spec = NeutrinoSpectrumModel.alpha_fit(mean_energy_mev=mean_energy_mev, alpha=alpha)
 
     # Compare a few detector scales (toy, ES-only).
+    detectors = detector_presets()
+    # Override the SK-like mass from the function argument while keeping the same label format.
     detectors = [
-        Detector.water_equivalent(fiducial_mass_kton=detector_kton, name=f"SK-like ({detector_kton:g} kt)"),
-        Detector.water_equivalent(fiducial_mass_kton=187.0, name="Hyper-K-like (187 kt)"),
-        Detector.water_equivalent(fiducial_mass_kton=1000.0, name="1 Mt water (toy)"),
+        detectors[0].__class__(name=f"SK-like ({detector_kton:g} kt)", fiducial_mass_kton=float(detector_kton)),
+        *detectors[1:],
     ]
     events_by_det = {
-        det.name: np.array(
-            [estimate_es_events_per_year(flux_at_earth_cm2_s=float(f), detector=det, spectrum=spec) for f in flux]
+        det.to_detector().name: np.array(
+            [
+                estimate_es_events_per_year(
+                    flux_at_earth_cm2_s=float(f),
+                    detector=det.to_detector(),
+                    spectrum=spec,
+                )
+                for f in flux
+            ]
         )
         for det in detectors
     }

@@ -141,6 +141,7 @@ def expected_counts_vs_time(
     sun_y_kpc: float = 0.0,
     within_samples: int = 200_000,
     seed: int = 1,
+    p_within_override: float | None = None,
 ) -> dict[str, np.ndarray]:
     """
     Deterministic expectation values vs time for a constant-SFR toy model.
@@ -153,15 +154,20 @@ def expected_counts_vs_time(
     bins = make_mass_bins(points)
     imf_obj = imf_preset(imf)
 
-    rng = np.random.default_rng(seed)
-    spatial = MWYoungSFParams()
-    p_within = estimate_within_probability(
-        rng=rng,
-        n_samples=within_samples,
-        spatial_params=spatial,
-        sun_xy_kpc=(sun_x_kpc, sun_y_kpc),
-        radius_kpc=radius_kpc,
-    )
+    if p_within_override is None:
+        rng = np.random.default_rng(seed)
+        spatial = MWYoungSFParams()
+        p_within = estimate_within_probability(
+            rng=rng,
+            n_samples=within_samples,
+            spatial_params=spatial,
+            sun_xy_kpc=(sun_x_kpc, sun_y_kpc),
+            radius_kpc=radius_kpc,
+        )
+    else:
+        p_within = float(p_within_override)
+        if not (0.0 <= p_within <= 1.0):
+            raise ValueError("p_within_override must be in [0,1]")
 
     t = np.asarray(t_grid_myr, dtype=float)
     if np.any(t < 0):
@@ -581,14 +587,22 @@ def run_imf_scan(
         rows.append(IMFScanRow(imf=imf, p_within=float(p_within), mean=mean, std=std, ratios=ratios))
 
     print(f"P(within {radius_kpc} kpc)≈{p_within:.6g} (shared)")
-    print("IMF".ljust(10) + "cburn_rsg".rjust(12) + "  " + "std".rjust(9) + "rsg".rjust(10) + "ratio".rjust(10))
+    header = (
+        "IMF".ljust(10)
+        + "cburn_rsg(MW)".rjust(16)
+        + "std".rjust(10)
+        + f"cburn_rsg(<{radius_kpc:g}kpc)".rjust(22)
+        + "std".rjust(10)
+        + "ratio".rjust(10)
+    )
+    print(header)
     for r in rows:
         print(
             r.imf.ljust(10)
-            + f"{r.mean['cburn_rsg']:12.3f}"
-            + "  "
-            + f"{r.std['cburn_rsg']:9.3f}"
-            + f"{r.mean['rsg']:10.3f}"
+            + f"{r.mean['cburn_rsg']:16.3f}"
+            + f"{r.std['cburn_rsg']:10.3f}"
+            + f"{r.mean['cburn_rsg_within']:22.4f}"
+            + f"{r.std['cburn_rsg_within']:10.4f}"
             + f"{r.ratios['cburn_rsg_over_rsg']:10.4f}"
         )
 
@@ -608,6 +622,8 @@ def run_imf_scan(
                     "cburn_std",
                     "cburn_rsg_mean",
                     "cburn_rsg_std",
+                    "cburn_rsg_within_mean",
+                    "cburn_rsg_within_std",
                     "cburn_rsg_over_rsg",
                     "rsg_over_alive",
                 ],
@@ -626,6 +642,8 @@ def run_imf_scan(
                         "cburn_std": f"{r.std['cburn']:.6f}",
                         "cburn_rsg_mean": f"{r.mean['cburn_rsg']:.6f}",
                         "cburn_rsg_std": f"{r.std['cburn_rsg']:.6f}",
+                        "cburn_rsg_within_mean": f"{r.mean['cburn_rsg_within']:.6f}",
+                        "cburn_rsg_within_std": f"{r.std['cburn_rsg_within']:.6f}",
                         "cburn_rsg_over_rsg": f"{r.ratios['cburn_rsg_over_rsg']:.6g}",
                         "rsg_over_alive": f"{r.ratios['rsg_over_alive']:.6g}",
                     }
@@ -645,12 +663,18 @@ def run_imf_scan(
         yerr = [r.std["cburn_rsg"] for r in rows]
         labels = [r.imf for r in rows]
 
-        fig, ax = plt.subplots(figsize=(7.5, 4.0))
-        ax.bar(xs, y, yerr=yerr, capsize=3)
-        ax.set_xticks(xs)
-        ax.set_xticklabels(labels)
-        ax.set_ylabel("Expected count")
-        ax.set_title("C-burning RSGs (toy MW population; whole MW)")
+        y_local = [r.mean["cburn_rsg_within"] for r in rows]
+        yerr_local = [r.std["cburn_rsg_within"] for r in rows]
+
+        fig, (ax0, ax1) = plt.subplots(2, 1, figsize=(7.5, 6.2), sharex=True)
+        ax0.bar(xs, y, yerr=yerr, capsize=3)
+        ax0.set_ylabel("Expected count (whole MW)")
+        ax0.set_title("C-burning RSGs vs IMF (toy model)")
+
+        ax1.bar(xs, y_local, yerr=yerr_local, capsize=3, color="#9467bd")
+        ax1.set_ylabel(f"Expected count (<{radius_kpc:g} kpc)")
+        ax1.set_xticks(xs)
+        ax1.set_xticklabels(labels)
         fig.tight_layout()
         fig.savefig(out_plot, dpi=200)
         plt.close(fig)
