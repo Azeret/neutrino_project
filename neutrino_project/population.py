@@ -650,7 +650,7 @@ def run_imf_scan(
         ax.set_xticks(xs)
         ax.set_xticklabels(labels)
         ax.set_ylabel("Expected count")
-        ax.set_title("C-burning RSGs (toy MW population)")
+        ax.set_title("C-burning RSGs (toy MW population; whole MW)")
         fig.tight_layout()
         fig.savefig(out_plot, dpi=200)
         plt.close(fig)

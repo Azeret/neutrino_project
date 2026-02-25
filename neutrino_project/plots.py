@@ -144,7 +144,7 @@ def plot_cmd39_isochrone_hrd(
     ax.invert_xaxis()
     ax.set_xlabel(r"$\log_{10}(T_{\mathrm{eff}}/\mathrm{K})$")
     ax.set_ylabel(r"$\log_{10}(L/L_\odot)$")
-    ax.set_title("CMD 3.9 isochrone (HR diagram)")
+    ax.set_title("CMD 3.9 isochrone (HR diagram)\n(RSG cut shown; carbon burning is not labeled in CMD tables)")
     ax.legend(frameon=False, fontsize=9, loc="best")
     fig.tight_layout()
     fig.savefig(out_png, dpi=200)
@@ -183,19 +183,47 @@ def plot_phase_timeline(
     import matplotlib.pyplot as plt
 
     out_png.parent.mkdir(parents=True, exist_ok=True)
-    fig, ax = plt.subplots(figsize=(7.2, 2.6))
-    ax.set_title(f"Phase windows for {mass_msun:g} Msun (toy definitions)")
-    ax.set_xlabel("Age since birth [Myr]")
-    ax.set_yticks([])
 
-    ax.hlines(0.8, 0, lif, color="0.8", lw=6, label="alive range")
-    ax.hlines(0.6, rsg0, rsg1, color="#d62728", lw=10, label="RSG")
-    ax.hlines(0.4, cb0, cb1, color="#1f77b4", lw=10, label="C-burning (LC)")
-    if ov1 > ov0:
-        ax.hlines(0.2, ov0, ov1, color="#9467bd", lw=10, label="overlap")
-    ax.set_xlim(0, lif * 1.02)
-    ax.set_ylim(0, 1.05)
-    ax.legend(frameon=False, ncol=4, fontsize=8, loc="upper center", bbox_to_anchor=(0.5, -0.25))
+    # Carbon burning can be extremely short (kyr) compared to the full lifetime (Myr),
+    # so we show both a full-lifetime view and a zoom near the end of life.
+    zoom_myr = max(0.02, 20.0 * max(p.cburn_duration_myr, p.rsg_duration_myr, 1e-4))
+    zoom_lo = max(0.0, lif - zoom_myr)
+    zoom_hi = lif
+
+    import matplotlib.pyplot as plt
+
+    fig, (ax0, ax1) = plt.subplots(
+        2,
+        1,
+        figsize=(7.6, 4.8),
+        gridspec_kw={"height_ratios": [1.0, 1.2]},
+        sharey=True,
+    )
+
+    for ax in (ax0, ax1):
+        ax.set_yticks([])
+        ax.hlines(0.8, 0, lif, color="0.85", lw=6, label="alive range" if ax is ax0 else None)
+        ax.hlines(0.6, rsg0, rsg1, color="#d62728", lw=10, label="RSG" if ax is ax0 else None)
+        ax.hlines(0.4, cb0, cb1, color="#1f77b4", lw=10, label="C-burning (LC)" if ax is ax0 else None)
+        if ov1 > ov0:
+            ax.hlines(0.2, ov0, ov1, color="#9467bd", lw=10, label="overlap" if ax is ax0 else None)
+
+        # Make the tiny windows visible in the zoom by marking boundaries.
+        ax.vlines([cb0, cb1], 0.32, 0.48, color="#1f77b4", lw=1.5)
+        ax.vlines([rsg0, rsg1], 0.52, 0.68, color="#d62728", lw=1.5)
+        if ov1 > ov0:
+            ax.vlines([ov0, ov1], 0.12, 0.28, color="#9467bd", lw=1.5)
+
+    ax0.set_title(f"Phase windows for {mass_msun:g} Msun (toy definitions)")
+    ax0.set_xlim(0, lif * 1.02)
+    ax0.set_xlabel("Age since birth [Myr] (full lifetime)")
+    ax0.set_ylim(0, 1.05)
+    ax0.legend(frameon=False, ncol=4, fontsize=8, loc="upper center", bbox_to_anchor=(0.5, -0.25))
+
+    ax1.set_xlim(zoom_lo, zoom_hi)
+    ax1.set_xlabel(f"Zoom near end of life (last {zoom_hi - zoom_lo:.3g} Myr)")
+    ax1.set_ylim(0, 1.05)
+
     fig.tight_layout()
     fig.savefig(out_png, dpi=200)
     plt.close(fig)
@@ -310,13 +338,26 @@ def plot_counts_within_radius_vs_time(
     import matplotlib.pyplot as plt
 
     out_png.parent.mkdir(parents=True, exist_ok=True)
-    fig, ax = plt.subplots(figsize=(7.2, 4.2))
-    ax.plot(d["t_myr"], d["rsg_within"], color="#d62728", lw=2, label="RSG within radius")
-    ax.plot(d["t_myr"], d["cburn_rsg_within"], color="#9467bd", lw=2, label="C-burning RSG within radius")
-    ax.set_xlabel("Time since start of constant SFR [Myr]")
-    ax.set_ylabel(f"Expected number within {radius_kpc:g} kpc")
-    ax.set_title(f"Toy MW counts vs time (IMF={imf}, SFR={sfr_msun_per_yr:g} Msun/yr)")
-    ax.legend(frameon=False)
+    fig, (ax0, ax1) = plt.subplots(2, 1, figsize=(7.6, 6.2), sharex=True)
+
+    ax0.plot(d["t_myr"], d["rsg"], color="#d62728", lw=2, label="RSG (whole MW)")
+    ax0.plot(d["t_myr"], d["cburn_rsg"], color="#9467bd", lw=2, label="C-burning RSG (whole MW)")
+    ax0.set_ylabel("Expected number (whole MW)")
+    ax0.legend(frameon=False)
+
+    ax1.plot(d["t_myr"], d["rsg_within"], color="#d62728", lw=2, label=f"RSG within {radius_kpc:g} kpc")
+    ax1.plot(
+        d["t_myr"],
+        d["cburn_rsg_within"],
+        color="#9467bd",
+        lw=2,
+        label=f"C-burning RSG within {radius_kpc:g} kpc",
+    )
+    ax1.set_xlabel("Time since start of constant SFR [Myr]")
+    ax1.set_ylabel("Expected number (local)")
+    ax1.legend(frameon=False)
+
+    fig.suptitle(f"Toy MW counts vs time (IMF={imf}, SFR={sfr_msun_per_yr:g} Msun/yr)", y=0.98)
     fig.tight_layout()
     fig.savefig(out_png, dpi=200)
     plt.close(fig)
@@ -394,9 +435,20 @@ def plot_neutrino_yield_vs_time(
     one_star_flux = (lnu_per_star_erg_s / e_erg) * (inv_d2 / (4.0 * np.pi))
     flux = n_cburn_rsg_within * one_star_flux
 
-    det = Detector.water_equivalent(fiducial_mass_kton=detector_kton, name="SK-like")
     spec = NeutrinoSpectrumModel.alpha_fit(mean_energy_mev=mean_energy_mev, alpha=alpha)
-    events = np.array([estimate_es_events_per_year(flux_at_earth_cm2_s=float(f), detector=det, spectrum=spec) for f in flux])
+
+    # Compare a few detector scales (toy, ES-only).
+    detectors = [
+        Detector.water_equivalent(fiducial_mass_kton=detector_kton, name=f"SK-like ({detector_kton:g} kt)"),
+        Detector.water_equivalent(fiducial_mass_kton=187.0, name="Hyper-K-like (187 kt)"),
+        Detector.water_equivalent(fiducial_mass_kton=1000.0, name="1 Mt water (toy)"),
+    ]
+    events_by_det = {
+        det.name: np.array(
+            [estimate_es_events_per_year(flux_at_earth_cm2_s=float(f), detector=det, spectrum=spec) for f in flux]
+        )
+        for det in detectors
+    }
 
     _ensure_matplotlib_cache_dirs()
     import matplotlib.pyplot as plt
@@ -409,16 +461,25 @@ def plot_neutrino_yield_vs_time(
     ax1.set_yscale("log")
 
     ax2 = ax1.twinx()
-    ax2.plot(t, events, color="#1f77b4", lw=2, label="ES events/year (SK-like)")
-    ax2.set_ylabel("ES events/year")
+    colors = ["#1f77b4", "#ff7f0e", "#2ca02c"]
+    for (name, ev), c in zip(events_by_det.items(), colors, strict=False):
+        ax2.plot(t, ev, color=c, lw=2, label=f"{name}: ES events/year")
+    ax2.axhline(1.0, color="0.5", lw=1.0, ls="--")
+    ax2.text(t_max_myr * 0.02, 1.2, "≈1 event/yr", color="0.4", fontsize=8)
+    ax2.set_ylabel("Toy ES events/year")
+    ax2.set_yscale("log")
 
-    ax1.set_title(f"Toy neutrino yield vs time (IMF={imf}, radius={radius_kpc:g} kpc)")
+    ax1.set_title(
+        f"Toy neutrino yield vs time (IMF={imf}, radius={radius_kpc:g} kpc)\n"
+        f"(ES-only; backgrounds/thresholds not included)"
+    )
+
     lines, labels = [], []
     for ax in (ax1, ax2):
         l, lab = ax.get_legend_handles_labels()
         lines += l
         labels += lab
-    ax1.legend(lines, labels, frameon=False, fontsize=8, loc="upper left")
+    ax1.legend(lines, labels, frameon=False, fontsize=7.8, loc="upper left")
     fig.tight_layout()
     fig.savefig(out_png, dpi=200)
     plt.close(fig)

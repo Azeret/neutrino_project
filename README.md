@@ -18,10 +18,11 @@ Outputs are written to `outputs/`:
 - `outputs/imf_scan.csv`: table of expected counts per IMF (main column: `cburn_rsg_mean`)
 - `outputs/imf_scan.png`: bar plot of expected **C-burning RSG** counts per IMF
 - `outputs/mw_snapshot_map.png`: 2D toy Milky Way snapshot (phase-colored)
-- `outputs/counts_within_radius_vs_time.png`: expected RSG / C-burning RSG counts within 1 kpc vs time
-- `outputs/toy_neutrino_yield_vs_time.png`: toy flux + toy event-rate vs time
+- `outputs/counts_within_radius_vs_time.png`: expected counts vs time (whole MW + within 1 kpc)
+- `outputs/toy_neutrino_yield_vs_time.png`: toy flux + toy ES event-rates vs time (SK-like vs future scales)
 - `outputs/phase_timeline_18msun.png`: how phase windows are estimated for one mass
 - `outputs/isochrone_hrd_rsg_cut.png`: CMD 3.9 isochrone HR diagram + RSG cut (pedagogical)
+- `outputs/track_hrd_18msun.png`: PARSEC track HR diagram with RSG + C-burning highlighted (only if ZIP is present)
 
 If you get `ModuleNotFoundError` (e.g. missing `numpy`), install dependencies:
 
@@ -53,6 +54,13 @@ so you can see what the plots look like without running anything.
 ### Isochrone HR diagram + RSG cut (pedagogical)
 
 ![](figures/isochrone_hrd_rsg_cut.png)
+
+### PARSEC track HR diagram (shows C-burning)
+
+This example plot requires the full PARSEC track ZIP to generate, but we include
+an example image here so you can see what it looks like:
+
+![](figures/track_hrd_18msun.png)
 
 ## What “C-burning RSG” means in this project
 

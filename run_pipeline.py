@@ -34,6 +34,7 @@ from pathlib import Path
 
 from neutrino_project.parsec_v2_vms import extract_phase_windows_to_csv
 from neutrino_project.plots import (
+    plot_parsec_hrd,
     plot_cmd39_isochrone_hrd,
     plot_counts_within_radius_vs_time,
     plot_mw_snapshot_map,
@@ -96,6 +97,7 @@ class Config:
     make_time_neutrinos: bool = True
     make_phase_timeline: bool = True
     make_isochrone_plot: bool = True
+    make_track_hrd_example: bool = True
 
     # Neutrino toy parameters used in the time-evolution plot
     # (order-of-magnitude only; for a paper-level model see neutrino_project/neutrinos.py)
@@ -106,6 +108,9 @@ class Config:
 
     # Optional: isochrone file for the HR plot (included in this repo)
     isochrone_dat: Path = Path("data/parsec/isochrones/parsec_cmd39_v1p2s_Z0p0152_logAge7p0.dat")
+
+    # Optional: track HRD example (only works if you downloaded the PARSEC ZIP).
+    track_hrd_mass_msun: float = 18.0
 
 
 CFG = Config()
@@ -224,6 +229,18 @@ def main() -> None:
         plot_cmd39_isochrone_hrd(
             isochrone_dat=CFG.isochrone_dat,
             out_png=out,
+        )
+        print(f"Saved: {out}")
+
+    if CFG.make_track_hrd_example and CFG.parsec_zip.exists():
+        out = CFG.out_dir / f"track_hrd_{CFG.track_hrd_mass_msun:g}msun.png"
+        plot_parsec_hrd(
+            zip_path=CFG.parsec_zip,
+            mass_msun=CFG.track_hrd_mass_msun,
+            out_png=out,
+            lc_threshold=CFG.lc_threshold,
+            rsg_teff_max_k=CFG.rsg_teff_max_k,
+            rsg_logl_min=CFG.rsg_logl_min,
         )
         print(f"Saved: {out}")
 
