@@ -33,6 +33,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from neutrino_project.parsec_v2_vms import extract_phase_windows_to_csv
+from neutrino_project.plots import (
+    plot_cmd39_isochrone_hrd,
+    plot_counts_within_radius_vs_time,
+    plot_mw_snapshot_map,
+    plot_neutrino_yield_vs_time,
+    plot_phase_timeline,
+)
 from neutrino_project.population import run_imf_scan
 
 
@@ -82,6 +89,23 @@ class Config:
 
     # Outputs
     out_dir: Path = Path("outputs")
+
+    # Plots (set to False to skip)
+    make_mw_map: bool = True
+    make_time_counts: bool = True
+    make_time_neutrinos: bool = True
+    make_phase_timeline: bool = True
+    make_isochrone_plot: bool = True
+
+    # Neutrino toy parameters used in the time-evolution plot
+    # (order-of-magnitude only; for a paper-level model see neutrino_project/neutrinos.py)
+    lnu_per_star_erg_s: float = 1e38
+    mean_energy_mev: float = 0.9
+    alpha: float = 2.0
+    detector_kton: float = 22.5
+
+    # Optional: isochrone file for the HR plot (included in this repo)
+    isochrone_dat: Path = Path("data/parsec/isochrones/parsec_cmd39_v1p2s_Z0p0152_logAge7p0.dat")
 
 
 CFG = Config()
@@ -137,7 +161,72 @@ def main() -> None:
     print(f"Saved: {out_csv}")
     print(f"Saved: {out_plot}")
 
+    # Extra plots (all optional, controlled by CONFIG flags)
+    if CFG.make_mw_map:
+        out = CFG.out_dir / "mw_snapshot_map.png"
+        plot_mw_snapshot_map(
+            phases_csv=CFG.phases_csv,
+            out_png=out,
+            imf=CFG.imfs[0],
+            sfr_msun_per_yr=CFG.sfr_msun_per_yr,
+            t_obs_myr=CFG.duration_myr,
+            seed=CFG.seed,
+            radius_kpc=CFG.radius_kpc,
+            sun_xy_kpc=(CFG.sun_x_kpc, CFG.sun_y_kpc),
+        )
+        print(f"Saved: {out}")
+
+    if CFG.make_time_counts:
+        out = CFG.out_dir / "counts_within_radius_vs_time.png"
+        plot_counts_within_radius_vs_time(
+            phases_csv=CFG.phases_csv,
+            out_png=out,
+            imf=CFG.imfs[0],
+            sfr_msun_per_yr=CFG.sfr_msun_per_yr,
+            t_max_myr=max(CFG.duration_myr, 25.0),
+            radius_kpc=CFG.radius_kpc,
+            sun_xy_kpc=(CFG.sun_x_kpc, CFG.sun_y_kpc),
+            within_samples=CFG.within_samples,
+            seed=CFG.seed,
+        )
+        print(f"Saved: {out}")
+
+    if CFG.make_time_neutrinos:
+        out = CFG.out_dir / "toy_neutrino_yield_vs_time.png"
+        plot_neutrino_yield_vs_time(
+            phases_csv=CFG.phases_csv,
+            out_png=out,
+            imf=CFG.imfs[0],
+            sfr_msun_per_yr=CFG.sfr_msun_per_yr,
+            t_max_myr=max(CFG.duration_myr, 25.0),
+            radius_kpc=CFG.radius_kpc,
+            sun_xy_kpc=(CFG.sun_x_kpc, CFG.sun_y_kpc),
+            within_samples=CFG.within_samples,
+            seed=CFG.seed,
+            lnu_per_star_erg_s=CFG.lnu_per_star_erg_s,
+            mean_energy_mev=CFG.mean_energy_mev,
+            alpha=CFG.alpha,
+            detector_kton=CFG.detector_kton,
+        )
+        print(f"Saved: {out}")
+
+    if CFG.make_phase_timeline:
+        out = CFG.out_dir / "phase_timeline_18msun.png"
+        plot_phase_timeline(
+            phases_csv=CFG.phases_csv,
+            mass_msun=18.0,
+            out_png=out,
+        )
+        print(f"Saved: {out}")
+
+    if CFG.make_isochrone_plot and CFG.isochrone_dat.exists():
+        out = CFG.out_dir / "isochrone_hrd_rsg_cut.png"
+        plot_cmd39_isochrone_hrd(
+            isochrone_dat=CFG.isochrone_dat,
+            out_png=out,
+        )
+        print(f"Saved: {out}")
+
 
 if __name__ == "__main__":
     main()
-

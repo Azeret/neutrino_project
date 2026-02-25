@@ -17,6 +17,11 @@ python3 run_pipeline.py
 Outputs are written to `outputs/`:
 - `outputs/imf_scan.csv`: table of expected counts per IMF (main column: `cburn_rsg_mean`)
 - `outputs/imf_scan.png`: bar plot of expected **C-burning RSG** counts per IMF
+- `outputs/mw_snapshot_map.png`: 2D toy Milky Way snapshot (phase-colored)
+- `outputs/counts_within_radius_vs_time.png`: expected RSG / C-burning RSG counts within 1 kpc vs time
+- `outputs/toy_neutrino_yield_vs_time.png`: toy flux + toy event-rate vs time
+- `outputs/phase_timeline_18msun.png`: how phase windows are estimated for one mass
+- `outputs/isochrone_hrd_rsg_cut.png`: CMD 3.9 isochrone HR diagram + RSG cut (pedagogical)
 
 If you get `ModuleNotFoundError` (e.g. missing `numpy`), install dependencies:
 
@@ -53,9 +58,14 @@ Common “knobs” in the CONFIG block:
 - `imfs`: choose which IMFs to compare
 - `sfr_msun_per_yr`, `duration_myr`: star formation assumptions
 - `n_sims`: Monte Carlo precision (bigger = smoother, slower)
+- `make_*`: turn individual plots on/off
 
 The **large PARSEC track ZIPs** are **not** included (they are ~85–95 MB each). If you obtain them yourself, you can set:
 `recompute_phases_from_zip=True` in `run_pipeline.py` to regenerate the phase CSV.
+
+This repo also includes small CMD 3.9 isochrone tables (for plotting):
+- `data/parsec/isochrones/parsec_cmd39_v1p2s_Z0p0152_logAge7p0.dat`
+- `data/parsec/isochrones/parsec_cmd39_v2p0_Z0p0152_logAge7p0.dat`
 
 ## Optional: advanced CLI (uses flags)
 
