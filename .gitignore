@@ -1,0 +1,8 @@
+outputs/
+__pycache__/
+*.pyc
+.DS_Store
+
+# Large PARSEC track ZIPs are not versioned; download them separately if needed.
+data/parsec/v2_vms/*.zip
+
