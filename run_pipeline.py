@@ -42,6 +42,7 @@ from neutrino_project.plots import (
     plot_phase_timeline,
 )
 from neutrino_project.detectability import detector_presets, estimate_detectability_at_time
+from neutrino_project.imf_constraint import default_future_detector, imf_constraint_matrix
 from neutrino_project.population import run_imf_scan
 
 
@@ -101,6 +102,7 @@ class Config:
     make_track_hrd_example: bool = True
     make_detectability_table: bool = True
     make_detectability_plot: bool = True
+    make_imf_constraint_demo: bool = True
 
     # Neutrino toy parameters used in the time-evolution plot
     # (order-of-magnitude only; for a paper-level model see neutrino_project/neutrinos.py)
@@ -110,6 +112,9 @@ class Config:
     detector_kton: float = 22.5
     inv_d2_samples: int = 100_000
     reference_distance_pc: float = 200.0
+    constraint_exposure_years: float = 10.0
+    constraint_z_sigma: float = 3.0
+    constraint_background_per_year: float = 0.0
 
     # Optional: isochrone file for the HR plot (included in this repo)
     isochrone_dat: Path = Path("data/parsec/isochrones/parsec_cmd39_v1p2s_Z0p0152_logAge7p0.dat")
@@ -271,6 +276,85 @@ def main() -> None:
             plt.close(fig)
 
             print(f"Saved: {out_det_png}")
+
+    if CFG.make_imf_constraint_demo:
+        # Question: if detection were feasible, could the rate constrain the IMF?
+        # Here we compute a simple required detector mass (kton water-equivalent)
+        # to separate IMF pairs at z_sigma after an exposure.
+        out_matrix_csv = CFG.out_dir / "imf_constraint_required_mass.csv"
+        out_matrix_png = CFG.out_dir / "imf_constraint_required_mass.png"
+
+        det = default_future_detector()
+        res_list, mat = imf_constraint_matrix(
+            phases_csv=CFG.phases_csv,
+            imfs=list(CFG.imfs),
+            detector=det,
+            exposure_years=CFG.constraint_exposure_years,
+            z_sigma=CFG.constraint_z_sigma,
+            background_per_year=CFG.constraint_background_per_year,
+            sfr_msun_per_yr=CFG.sfr_msun_per_yr,
+            t_obs_myr=CFG.duration_myr,
+            radius_kpc=CFG.radius_kpc,
+            sun_xy_kpc=(CFG.sun_x_kpc, CFG.sun_y_kpc),
+            within_samples=CFG.within_samples,
+            inv_d2_samples=CFG.inv_d2_samples,
+            seed=CFG.seed,
+            lnu_per_star_erg_s=CFG.lnu_per_star_erg_s,
+            mean_energy_mev=CFG.mean_energy_mev,
+            alpha=CFG.alpha,
+        )
+
+        import csv
+
+        with out_matrix_csv.open("w", newline="") as f:
+            w = csv.DictWriter(
+                f,
+                fieldnames=[
+                    "imf_a",
+                    "imf_b",
+                    "detector_name",
+                    "exposure_years",
+                    "z_sigma",
+                    "base_background_per_year",
+                    "base_mass_kton",
+                    "base_rate_a_per_year",
+                    "base_rate_b_per_year",
+                    "required_mass_kton_for_z",
+                ],
+            )
+            w.writeheader()
+            for r in res_list:
+                w.writerow(r.__dict__)
+
+        # Plot a heatmap of required mass (kton) to separate IMF pairs.
+        import os
+
+        tmp = Path(os.environ.get("TMPDIR", "/tmp"))
+        Path(os.environ.setdefault("MPLCONFIGDIR", str(tmp / "matplotlib"))).mkdir(parents=True, exist_ok=True)
+        Path(os.environ.setdefault("XDG_CACHE_HOME", str(tmp / "xdg_cache"))).mkdir(parents=True, exist_ok=True)
+        import matplotlib.pyplot as plt
+        import numpy as np
+
+        fig, ax = plt.subplots(figsize=(6.6, 5.6))
+        # Use log10 scale for readability; cap huge values.
+        mat_plot = np.log10(np.clip(mat, 1.0, 1e9))
+        im = ax.imshow(mat_plot, cmap="viridis")
+        ax.set_xticks(range(len(CFG.imfs)))
+        ax.set_yticks(range(len(CFG.imfs)))
+        ax.set_xticklabels(list(CFG.imfs), rotation=30, ha="right")
+        ax.set_yticklabels(list(CFG.imfs))
+        ax.set_title(
+            f"Required detector mass to separate IMFs (toy, ES-only)\n"
+            f"{det.name}, T={CFG.constraint_exposure_years:g} yr, z={CFG.constraint_z_sigma:g}"
+        )
+        cbar = fig.colorbar(im, ax=ax)
+        cbar.set_label("log10(required mass [kton])")
+        fig.tight_layout()
+        fig.savefig(out_matrix_png, dpi=200)
+        plt.close(fig)
+
+        print(f"Saved: {out_matrix_csv}")
+        print(f"Saved: {out_matrix_png}")
 
     # Extra plots (all optional, controlled by CONFIG flags)
     if CFG.make_mw_map:

@@ -22,6 +22,8 @@ Outputs are written to `outputs/`:
 - `outputs/toy_neutrino_yield_vs_time.png`: toy flux + toy ES event-rates vs time (SK-like vs future scales)
 - `outputs/detectability_imf.csv`: per-IMF toy conversion: counts → flux → ES events/year (within 1 kpc)
 - `outputs/detectability_imf_events.png`: bar plot of toy ES events/year vs IMF (several detector masses)
+- `outputs/imf_constraint_required_mass.csv`: “if detectable, can it constrain IMF?” toy calculation (required detector mass)
+- `outputs/imf_constraint_required_mass.png`: heatmap visualization of the above
 - `outputs/phase_timeline_18msun.png`: how phase windows are estimated for one mass
 - `outputs/isochrone_hrd_rsg_cut.png`: CMD 3.9 isochrone HR diagram + RSG cut (pedagogical)
 - `outputs/track_hrd_18msun.png`: PARSEC track HR diagram with RSG + C-burning highlighted (only if ZIP is present)
@@ -52,6 +54,13 @@ so you can see what the plots look like without running anything.
 ### Detectability vs IMF (toy)
 
 ![](figures/detectability_imf_events.png)
+
+### “Could this constrain the IMF?” (toy)
+
+This is a *very optimistic* signal-only calculation: it tells you how big a detector would need to be
+to separate two IMFs **if** backgrounds could be suppressed well enough.
+
+![](figures/imf_constraint_required_mass.png)
 
 ### Phase-window illustration (one mass)
 
