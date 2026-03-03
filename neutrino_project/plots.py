@@ -270,8 +270,18 @@ def plot_mw_snapshot_map(
 
     rng = np.random.default_rng(seed + 12345)
     idx = np.arange(x.size)
+    # Keep all local stars so the within-1kpc circle is visually meaningful.
+    dist_all = np.sqrt((x - sun_xy_kpc[0]) ** 2 + (y - sun_xy_kpc[1]) ** 2)
+    idx_local = np.where(dist_all <= radius_kpc)[0]
+    idx_far = np.where(dist_all > radius_kpc)[0]
     if idx.size > max_points:
-        idx = rng.choice(idx, size=max_points, replace=False)
+        if idx_local.size >= int(max_points):
+            idx = idx_local
+        else:
+            n_far = int(max_points) - int(idx_local.size)
+            if idx_far.size > n_far:
+                idx_far = rng.choice(idx_far, size=int(n_far), replace=False)
+            idx = np.concatenate([idx_local, idx_far])
         x, y = x[idx], y[idx]
         dead = dead[idx]
         other_alive = other_alive[idx]

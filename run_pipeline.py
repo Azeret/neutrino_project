@@ -115,6 +115,7 @@ class Config:
     anim_dt_myr: float = 0.25
     anim_max_points: int = 40_000
     anim_fps: int = 4
+    anim_seed: int = 3
     anim_make_mp4: bool = True
     anim_make_gif: bool = True
 
@@ -418,7 +419,7 @@ def main() -> None:
             dt_myr=CFG.anim_dt_myr,
             fps=CFG.anim_fps,
             max_points=CFG.anim_max_points,
-            seed=CFG.seed,
+            seed=CFG.anim_seed,
             sun_xy_kpc=(CFG.sun_x_kpc, CFG.sun_y_kpc),
             radius_kpc=CFG.radius_kpc,
         )

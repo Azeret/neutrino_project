@@ -185,14 +185,16 @@ def simulate_particles_for_animation(
     t_max_myr: float,
     seed: int = 1,
     spatial_params: MWYoungSFParams | None = None,
-    m_min: float = 12.0,
-    m_max: float = 35.0,
+    m_min: float | None = None,
+    m_max: float | None = None,
 ) -> ParticlePopulation:
     """
     Simulate a particle population for a MW 2D animation.
 
-    This intentionally only simulates the massive-star range covered by the PARSEC phase windows
-    (default 12–35 Msun), so that RSG/C-burning phases are defined for every particle.
+    This uses the same mass-bin edges as the phase-window CSV.
+
+    Note: phase windows are known only at the discrete PARSEC masses; within each mass bin,
+    all particles share the same phase windows (a pedagogical approximation).
     """
     rng = np.random.default_rng(seed)
     imf_model = imf_preset(imf)
@@ -202,8 +204,8 @@ def simulate_particles_for_animation(
     stars: list[tuple[np.ndarray, PhaseWindows]] = []
 
     for m_lo, m_hi, w in bins:
-        lo = max(float(m_lo), float(m_min))
-        hi = min(float(m_hi), float(m_max))
+        lo = float(m_lo) if m_min is None else max(float(m_lo), float(m_min))
+        hi = float(m_hi) if m_max is None else min(float(m_hi), float(m_max))
         if hi <= lo:
             continue
         mu = formed_mass_msun * imf_model.number_per_msun(lo, hi)
@@ -275,9 +277,22 @@ def render_mw_evolution_frames(
         raise ValueError("t_grid_myr must be a 1D array with at least 2 entries")
 
     rng = np.random.default_rng(seed + 2026)
-    idx = np.arange(pop.n)
-    if idx.size > int(max_points):
-        idx = rng.choice(idx, size=int(max_points), replace=False)
+
+    # Keep *all* particles within the local sphere so the "within 1 kpc" counts
+    # in the visualization are not wiped out by global downsampling.
+    dist_all = np.sqrt((pop.x_kpc - sun_xy_kpc[0]) ** 2 + (pop.y_kpc - sun_xy_kpc[1]) ** 2)
+    idx_local = np.where(dist_all <= radius_kpc)[0]
+    idx_far = np.where(dist_all > radius_kpc)[0]
+
+    if max_points <= 0:
+        raise ValueError("max_points must be positive")
+    if idx_local.size >= int(max_points):
+        idx = idx_local
+    else:
+        n_far = int(max_points) - int(idx_local.size)
+        if idx_far.size > n_far:
+            idx_far = rng.choice(idx_far, size=int(n_far), replace=False)
+        idx = np.concatenate([idx_local, idx_far])
 
     x = pop.x_kpc[idx]
     y = pop.y_kpc[idx]
@@ -286,6 +301,7 @@ def render_mw_evolution_frames(
     rsg_start = pop.rsg_start_myr[idx]
     cb0 = pop.cburn_start_myr[idx]
     cb1 = pop.cburn_end_myr[idx]
+    dist = dist_all[idx]
 
     from .plots import _ensure_matplotlib_cache_dirs
 
@@ -305,6 +321,7 @@ def render_mw_evolution_frames(
         cburn_rsg = rsg & np.isfinite(cb0) & np.isfinite(cb1) & (age >= cb0) & (age <= cb1)
         rsg_only = rsg & ~cburn_rsg
         other_alive = alive & ~rsg
+        within = dist <= radius_kpc
 
         fig, ax = plt.subplots(figsize=(7.2, 7.2))
         ax.scatter(x[dead], y[dead], s=6, color="black", alpha=0.45, label="dead (BH/remnant)", rasterized=True)
@@ -338,7 +355,9 @@ def render_mw_evolution_frames(
             f"alive={int(alive.sum())}\n"
             f"RSG={int(rsg.sum())}\n"
             f"C-burning RSG={int(cburn_rsg.sum())}\n"
-            f"dead={int(dead.sum())}",
+            f"dead={int(dead.sum())}\n"
+            f"within {radius_kpc:g} kpc: RSG={int((rsg & within).sum())}, "
+            f"C-burning RSG={int((cburn_rsg & within).sum())}",
             transform=ax.transAxes,
             fontsize=9,
             va="bottom",
