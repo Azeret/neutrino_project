@@ -248,11 +248,10 @@ def plot_mw_snapshot_map(
 ) -> None:
     """
     2D Milky Way disk snapshot (toy), with colors:
-    - grey: alive but not RSG/C-burning
+    - yellow: alive but not RSG
     - red: RSG
-    - blue: C-burning
-    - purple: overlap (C-burning RSG)
-    - light grey: dead (formed in the time window but already ended its lifetime)
+    - blue: C-burning RSG (overlap)
+    - black: dead (formed in the time window but already ended its lifetime)
     """
     cat = simulate_snapshot_catalog(
         phases_csv=phases_csv,
@@ -264,12 +263,10 @@ def plot_mw_snapshot_map(
     x, y = cat.x_kpc, cat.y_kpc
     alive = cat.alive
     rsg = cat.is_rsg
-    cburn = cat.is_cburn
-    overlap = rsg & cburn
+    cburn_rsg = rsg & cat.is_cburn
     dead = ~alive
-    other_alive = alive & ~(rsg | cburn)
-    rsg_only = rsg & ~overlap
-    cburn_only = cburn & ~overlap
+    other_alive = alive & ~rsg
+    rsg_only = rsg & ~cburn_rsg
 
     rng = np.random.default_rng(seed + 12345)
     idx = np.arange(x.size)
@@ -279,8 +276,7 @@ def plot_mw_snapshot_map(
         dead = dead[idx]
         other_alive = other_alive[idx]
         rsg_only = rsg_only[idx]
-        cburn_only = cburn_only[idx]
-        overlap = overlap[idx]
+        cburn_rsg = cburn_rsg[idx]
 
     _ensure_matplotlib_cache_dirs()
     import matplotlib.pyplot as plt
@@ -288,11 +284,10 @@ def plot_mw_snapshot_map(
     out_png.parent.mkdir(parents=True, exist_ok=True)
     fig, ax = plt.subplots(figsize=(7.2, 7.2))
 
-    ax.scatter(x[dead], y[dead], s=4, color="0.9", alpha=0.35, label="dead (in window)")
-    ax.scatter(x[other_alive], y[other_alive], s=6, color="0.6", alpha=0.35, label="alive (other)")
-    ax.scatter(x[rsg_only], y[rsg_only], s=10, color="#d62728", alpha=0.8, label="RSG")
-    ax.scatter(x[cburn_only], y[cburn_only], s=12, color="#1f77b4", alpha=0.8, label="C-burning")
-    ax.scatter(x[overlap], y[overlap], s=14, color="#9467bd", alpha=0.9, label="C-burning RSG")
+    ax.scatter(x[dead], y[dead], s=6, color="black", alpha=0.30, label="dead (BH/remnant)")
+    ax.scatter(x[other_alive], y[other_alive], s=6, color="#f2c84b", alpha=0.35, label="alive (other)")
+    ax.scatter(x[rsg_only], y[rsg_only], s=10, color="#d62728", alpha=0.85, label="RSG")
+    ax.scatter(x[cburn_rsg], y[cburn_rsg], s=18, color="#1f77b4", alpha=0.95, label="C-burning RSG")
 
     sx, sy = sun_xy_kpc
     ax.scatter([0.0], [0.0], s=90, color="black", label="Galactic Center")

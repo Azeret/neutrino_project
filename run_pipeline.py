@@ -112,9 +112,9 @@ class Config:
     make_imf_constraint_demo: bool = True
     anim_imf: str = "kroupa"
     anim_t_max_myr: float = 20.0
-    anim_dt_myr: float = 0.5
+    anim_dt_myr: float = 0.25
     anim_max_points: int = 40_000
-    anim_fps: int = 10
+    anim_fps: int = 8
     anim_make_mp4: bool = True
     anim_make_gif: bool = True
 

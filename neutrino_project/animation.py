@@ -266,10 +266,9 @@ def render_mw_evolution_frames(
     Render a sequence of PNG frames for the evolving MW population map.
 
     Colors:
-    - grey: alive but not RSG/C-burning
+    - yellow: alive but not RSG
     - red: RSG
-    - blue: C-burning
-    - purple: overlap (C-burning RSG)
+    - blue: C-burning RSG (overlap)
     - black: dead (shown as 'black holes' / remnants)
     """
     if t_grid_myr.ndim != 1 or t_grid_myr.size < 2:
@@ -303,18 +302,23 @@ def render_mw_evolution_frames(
         dead = born & ~alive
 
         rsg = alive & (age >= rsg_start)
-        cburn = alive & np.isfinite(cb0) & np.isfinite(cb1) & (age >= cb0) & (age <= cb1)
-        overlap = rsg & cburn
-        rsg_only = rsg & ~overlap
-        cburn_only = cburn & ~overlap
-        other_alive = alive & ~(rsg | cburn)
+        cburn_rsg = rsg & np.isfinite(cb0) & np.isfinite(cb1) & (age >= cb0) & (age <= cb1)
+        rsg_only = rsg & ~cburn_rsg
+        other_alive = alive & ~rsg
 
         fig, ax = plt.subplots(figsize=(7.2, 7.2))
         ax.scatter(x[dead], y[dead], s=6, color="black", alpha=0.45, label="dead (BH/remnant)", rasterized=True)
-        ax.scatter(x[other_alive], y[other_alive], s=6, color="0.6", alpha=0.30, label="alive (other)", rasterized=True)
+        ax.scatter(x[other_alive], y[other_alive], s=6, color="#f2c84b", alpha=0.30, label="alive (other)", rasterized=True)
         ax.scatter(x[rsg_only], y[rsg_only], s=10, color="#d62728", alpha=0.85, label="RSG", rasterized=True)
-        ax.scatter(x[cburn_only], y[cburn_only], s=12, color="#1f77b4", alpha=0.85, label="C-burning", rasterized=True)
-        ax.scatter(x[overlap], y[overlap], s=14, color="#9467bd", alpha=0.95, label="C-burning RSG", rasterized=True)
+        ax.scatter(
+            x[cburn_rsg],
+            y[cburn_rsg],
+            s=20,
+            color="#1f77b4",
+            alpha=0.95,
+            label="C-burning RSG",
+            rasterized=True,
+        )
 
         ax.scatter([0.0], [0.0], s=90, color="black", label="Galactic Center")
         ax.scatter([sx], [sy], s=90, color="cyan", marker="*", label="Sun")
@@ -333,7 +337,7 @@ def render_mw_evolution_frames(
             f"N shown={x.size}\n"
             f"alive={int(alive.sum())}\n"
             f"RSG={int(rsg.sum())}\n"
-            f"C-burn={int(cburn.sum())}\n"
+            f"C-burning RSG={int(cburn_rsg.sum())}\n"
             f"dead={int(dead.sum())}",
             transform=ax.transAxes,
             fontsize=9,
