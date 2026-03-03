@@ -270,14 +270,14 @@ def plot_mw_snapshot_map(
     rsg_only = rsg & ~cburn_rsg
 
     rng = np.random.default_rng(seed + 12345)
-    idx = np.arange(x.size)
-    if idx.size > max_points:
-        idx = rng.choice(idx, size=max_points, replace=False)
-        x, y = x[idx], y[idx]
-        dead = dead[idx]
-        other_alive = other_alive[idx]
-        rsg_only = rsg_only[idx]
-        cburn_rsg = cburn_rsg[idx]
+    # Always keep all RSG / C-burning RSG points (to avoid local-count artifacts),
+    # but downsample the large background populations for performance.
+    idx_all = np.arange(x.size)
+    bg_idx = idx_all if idx_all.size <= int(max_points) else rng.choice(idx_all, size=int(max_points), replace=False)
+    bg_mask = np.zeros(x.size, dtype=bool)
+    bg_mask[bg_idx] = True
+    dead_bg = dead & bg_mask
+    other_alive_bg = other_alive & bg_mask
 
     _ensure_matplotlib_cache_dirs()
     import matplotlib.pyplot as plt
@@ -285,8 +285,8 @@ def plot_mw_snapshot_map(
     out_png.parent.mkdir(parents=True, exist_ok=True)
     fig, ax = plt.subplots(figsize=(7.2, 7.2))
 
-    ax.scatter(x[dead], y[dead], s=6, color="black", alpha=0.30, label="dead (BH/remnant)")
-    ax.scatter(x[other_alive], y[other_alive], s=6, color="#f2c84b", alpha=0.35, label="alive (other)")
+    ax.scatter(x[dead_bg], y[dead_bg], s=6, color="black", alpha=0.30, label="dead (BH/remnant)")
+    ax.scatter(x[other_alive_bg], y[other_alive_bg], s=6, color="#f2c84b", alpha=0.35, label="alive (other)")
     ax.scatter(x[rsg_only], y[rsg_only], s=10, color="#d62728", alpha=0.85, label="RSG")
     ax.scatter(x[cburn_rsg], y[cburn_rsg], s=18, color="#1f77b4", alpha=0.95, label="C-burning RSG")
 
@@ -305,23 +305,21 @@ def plot_mw_snapshot_map(
     ax.legend(frameon=False, fontsize=8, loc="upper right")
 
     # Inset zoom on the Solar neighborhood (uses the full, non-downsampled catalog locally).
-    dist_all = np.sqrt((cat.x_kpc - sx) ** 2 + (cat.y_kpc - sy) ** 2)
-    idx_inset = dist_all <= float(inset_zoom_kpc)
-    if idx_inset.any():
-        xi = cat.x_kpc[idx_inset]
-        yi = cat.y_kpc[idx_inset]
-        alive_i = cat.alive[idx_inset]
-        rsg_i = cat.is_rsg[idx_inset]
-        cburn_rsg_i = rsg_i & cat.is_cburn[idx_inset]
-        dead_i = ~alive_i
-        other_alive_i = alive_i & ~rsg_i
-        rsg_only_i = rsg_i & ~cburn_rsg_i
-
+    dist_all = np.sqrt((x - sx) ** 2 + (y - sy) ** 2)
+    inset = dist_all <= float(inset_zoom_kpc)
+    if inset.any():
         axin = ax.inset_axes([0.04, 0.60, 0.36, 0.36])
-        axin.scatter(xi[dead_i], yi[dead_i], s=7, color="black", alpha=0.50, rasterized=True)
-        axin.scatter(xi[other_alive_i], yi[other_alive_i], s=7, color="#f2c84b", alpha=0.35, rasterized=True)
-        axin.scatter(xi[rsg_only_i], yi[rsg_only_i], s=14, color="#d62728", alpha=0.90, rasterized=True)
-        axin.scatter(xi[cburn_rsg_i], yi[cburn_rsg_i], s=26, color="#1f77b4", alpha=0.98, rasterized=True)
+        axin.scatter(x[dead_bg & inset], y[dead_bg & inset], s=7, color="black", alpha=0.50, rasterized=True)
+        axin.scatter(
+            x[other_alive_bg & inset],
+            y[other_alive_bg & inset],
+            s=7,
+            color="#f2c84b",
+            alpha=0.35,
+            rasterized=True,
+        )
+        axin.scatter(x[rsg_only & inset], y[rsg_only & inset], s=14, color="#d62728", alpha=0.90, rasterized=True)
+        axin.scatter(x[cburn_rsg & inset], y[cburn_rsg & inset], s=26, color="#1f77b4", alpha=0.98, rasterized=True)
         axin.scatter([sx], [sy], s=70, color="cyan", marker="*", rasterized=True)
         axin.add_patch(plt.Circle((sx, sy), radius_kpc, color="cyan", fill=False, lw=1.6, ls="--", alpha=0.9))
         axin.set_xlim(sx - inset_zoom_kpc, sx + inset_zoom_kpc)

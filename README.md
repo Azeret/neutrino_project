@@ -148,6 +148,16 @@ order `~10^-3 Msun/yr/kpc^2` within 1 kpc of the Sun, consistent with Gaia-based
 
 The repo includes small precomputed phase-window tables:
 - `data/parsec/v2_vms/phases_Z0p014.csv`
+
+## Milky Way spatial model (toy)
+
+The 2D maps/animations use a deliberately simple distribution for *young* massive stars:
+- truncated exponential disk in Galactocentric radius
+- 4 logarithmic spiral arms with a pitch angle of ~12°
+- a molecular ring
+
+These choices are meant to be qualitatively Milky-Way-like (and easy to understand/modify),
+not to reproduce the latest Galactic structure fits in detail.
 - `data/parsec/v2_vms/phases_Z0p017.csv`
 
 These contain (per mass):

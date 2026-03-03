@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .galaxy import MWYoungSFParams, estimate_within_probability, sample_mw_young_xy
+from .galaxy import MWYoungSFParams, estimate_within_probability, implied_local_sfr_surface_density, sample_mw_young_xy
 from .imf import imf_preset
 
 
@@ -562,6 +562,11 @@ def run_imf_scan(
         sun_xy_kpc=sun_xy,
         radius_kpc=radius_kpc,
     )
+    sigma_local = implied_local_sfr_surface_density(
+        sfr_msun_per_yr=sfr_msun_per_yr,
+        p_within=p_within,
+        radius_kpc=radius_kpc,
+    )
 
     keys = ["alive", "rsg", "cburn", "cburn_rsg", "within", "cburn_rsg_within"]
     rows: list[IMFScanRow] = []
@@ -588,6 +593,7 @@ def run_imf_scan(
         rows.append(IMFScanRow(imf=imf, p_within=float(p_within), mean=mean, std=std, ratios=ratios))
 
     print(f"P(within {radius_kpc} kpc)≈{p_within:.6g} (shared)")
+    print(f"Implied mean Σ_SFR(<{radius_kpc:g} kpc)≈{sigma_local:.4g} Msun/yr/kpc^2")
     header = (
         "IMF".ljust(10)
         + "cburn_rsg(MW)".rjust(16)

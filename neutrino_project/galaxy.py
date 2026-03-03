@@ -137,3 +137,27 @@ def estimate_within_probability(
     sx, sy = sun_xy_kpc
     dist = np.sqrt((x - sx) ** 2 + (y - sy) ** 2)
     return float((dist <= radius_kpc).mean())
+
+
+def implied_local_sfr_surface_density(
+    *,
+    sfr_msun_per_yr: float,
+    p_within: float,
+    radius_kpc: float,
+) -> float:
+    """
+    Convert a global SFR and a "within radius" fraction into an average SFR surface density.
+
+    If the spatial distribution of newly formed stars traces the SFR surface density,
+    then the SFR inside the circle is:
+
+      SFR(<R) = p_within * SFR_total
+
+    and the mean surface density inside that circle is:
+
+      Σ_SFR = SFR(<R) / (π R^2)
+    """
+    R = float(radius_kpc)
+    if R <= 0:
+        raise ValueError("radius_kpc must be positive")
+    return float(sfr_msun_per_yr) * float(p_within) / (np.pi * R * R)
