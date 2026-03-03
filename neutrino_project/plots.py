@@ -18,6 +18,10 @@ def _ensure_matplotlib_cache_dirs() -> None:
     """
     import os
 
+    # Force a non-interactive backend. This avoids hard crashes on some systems
+    # (e.g., macOS GUI backends in headless contexts).
+    os.environ.setdefault("MPLBACKEND", "Agg")
+
     tmp = Path(os.environ.get("TMPDIR", "/tmp"))
     Path(os.environ.setdefault("MPLCONFIGDIR", str(tmp / "matplotlib"))).mkdir(parents=True, exist_ok=True)
     Path(os.environ.setdefault("XDG_CACHE_HOME", str(tmp / "xdg_cache"))).mkdir(parents=True, exist_ok=True)
@@ -477,7 +481,7 @@ def plot_neutrino_yield_vs_time(
         "#e377c2",
         "#7f7f7f",
     ]
-    for (name, ev), c in zip(events_by_det.items(), colors, strict=False):
+    for (name, ev), c in zip(events_by_det.items(), colors):
         ax2.plot(t, ev, color=c, lw=1.8, label=f"{name}")
     ax2.axhline(1.0, color="0.5", lw=1.0, ls="--")
     ax2.text(t_max_myr * 0.02, 1.2, "≈1 event/yr", color="0.4", fontsize=8)

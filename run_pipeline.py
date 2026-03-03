@@ -29,8 +29,13 @@ see the notes in neutrino_project/neutrinos.py.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
+
+# Force a non-interactive backend for all plotting in this runner.
+# This avoids hard crashes on some systems (e.g., macOS GUI backends in headless contexts).
+os.environ.setdefault("MPLBACKEND", "Agg")
 
 from neutrino_project.parsec_v2_vms import extract_phase_windows_to_csv
 from neutrino_project.plots import (
@@ -43,6 +48,7 @@ from neutrino_project.plots import (
 )
 from neutrino_project.detectability import detector_presets, estimate_detectability_at_time
 from neutrino_project.imf_constraint import default_future_detector, imf_constraint_matrix
+from neutrino_project.animation import make_mw_evolution_animation
 from neutrino_project.population import run_imf_scan
 
 
@@ -95,6 +101,7 @@ class Config:
 
     # Plots (set to False to skip)
     make_mw_map: bool = True
+    make_mw_evolution_animation: bool = False
     make_time_counts: bool = True
     make_time_neutrinos: bool = True
     make_phase_timeline: bool = True
@@ -103,6 +110,13 @@ class Config:
     make_detectability_table: bool = True
     make_detectability_plot: bool = True
     make_imf_constraint_demo: bool = True
+    anim_imf: str = "kroupa"
+    anim_t_max_myr: float = 20.0
+    anim_dt_myr: float = 0.5
+    anim_max_points: int = 40_000
+    anim_fps: int = 10
+    anim_make_mp4: bool = True
+    anim_make_gif: bool = True
 
     # Neutrino toy parameters used in the time-evolution plot
     # (order-of-magnitude only; for a paper-level model see neutrino_project/neutrinos.py)
@@ -232,7 +246,9 @@ def main() -> None:
             ]
             w = csv.DictWriter(f, fieldnames=fieldnames)
             w.writeheader()
-            for imf, r in zip(CFG.imfs, rows, strict=True):
+            if len(rows) != len(CFG.imfs):
+                raise RuntimeError(f"Internal error: expected {len(CFG.imfs)} detectability rows, got {len(rows)}")
+            for imf, r in zip(CFG.imfs, rows):
                 row = {
                     "imf": imf,
                     "t_myr": f"{r.t_myr:.6g}",
@@ -386,6 +402,31 @@ def main() -> None:
             sun_xy_kpc=(CFG.sun_x_kpc, CFG.sun_y_kpc),
         )
         print(f"Saved: {out}")
+
+    if CFG.make_mw_evolution_animation:
+        frames_dir = CFG.out_dir / "mw_evolution_frames"
+        out_mp4 = CFG.out_dir / "mw_evolution.mp4" if CFG.anim_make_mp4 else None
+        out_gif = CFG.out_dir / "mw_evolution.gif" if CFG.anim_make_gif else None
+        make_mw_evolution_animation(
+            phases_csv=CFG.phases_csv,
+            out_frames_dir=frames_dir,
+            out_mp4=out_mp4,
+            out_gif=out_gif,
+            imf=CFG.anim_imf,
+            sfr_msun_per_yr=CFG.sfr_msun_per_yr,
+            t_max_myr=CFG.anim_t_max_myr,
+            dt_myr=CFG.anim_dt_myr,
+            fps=CFG.anim_fps,
+            max_points=CFG.anim_max_points,
+            seed=CFG.seed,
+            sun_xy_kpc=(CFG.sun_x_kpc, CFG.sun_y_kpc),
+            radius_kpc=CFG.radius_kpc,
+        )
+        print(f"Saved frames: {frames_dir}")
+        if out_mp4 is not None:
+            print(f"Saved: {out_mp4}")
+        if out_gif is not None:
+            print(f"Saved: {out_gif}")
 
     if CFG.make_time_counts:
         out = CFG.out_dir / "counts_within_radius_vs_time.png"

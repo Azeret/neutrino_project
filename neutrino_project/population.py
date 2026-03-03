@@ -417,6 +417,7 @@ def run_population_mc(
         import os
 
         tmp = Path(os.environ.get("TMPDIR", "/tmp"))
+        os.environ.setdefault("MPLBACKEND", "Agg")
         Path(os.environ.setdefault("MPLCONFIGDIR", str(tmp / "matplotlib"))).mkdir(parents=True, exist_ok=True)
         Path(os.environ.setdefault("XDG_CACHE_HOME", str(tmp / "xdg_cache"))).mkdir(parents=True, exist_ok=True)
         import matplotlib.pyplot as plt

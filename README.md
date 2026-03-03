@@ -14,10 +14,16 @@ Open `run_pipeline.py`, adjust the **CONFIG** block if you want, then run:
 python3 run_pipeline.py
 ```
 
+To generate the MW buildup animation, set `make_mw_evolution_animation = True` in `run_pipeline.py`.
+MP4/GIF outputs require `ffmpeg`; otherwise only the PNG frames are written.
+
 Outputs are written to `outputs/`:
 - `outputs/imf_scan.csv`: table of expected counts per IMF (main column: `cburn_rsg_mean`)
 - `outputs/imf_scan.png`: bar plot of expected **C-burning RSG** counts per IMF
 - `outputs/mw_snapshot_map.png`: 2D toy Milky Way snapshot (phase-colored)
+- `outputs/mw_evolution_frames/`: frames for a simple MW “buildup” animation (optional)
+- `outputs/mw_evolution.mp4`: MP4 built from those frames (optional; requires ffmpeg)
+- `outputs/mw_evolution.gif`: GIF built from those frames (optional; requires ffmpeg)
 - `outputs/counts_within_radius_vs_time.png`: expected counts vs time (whole MW + within 1 kpc)
 - `outputs/toy_neutrino_yield_vs_time.png`: toy flux + toy ES event-rates vs time (SK-like vs future scales)
 - `outputs/detectability_imf.csv`: per-IMF toy conversion: counts → flux → ES events/year (within 1 kpc)
@@ -42,6 +48,14 @@ so you can see what the plots look like without running anything.
 ### 2D Milky Way snapshot (toy)
 
 ![](figures/mw_snapshot_map.png)
+
+### MW buildup animation (toy)
+
+This is a particle visualization of the *massive-star* population (12–35 Msun) in the toy MW disk.
+Stars are born over time, change color when they enter the RSG phase / C-burning phase, and then
+turn into black points (remnants) after their lifetime ends.
+
+![](figures/mw_evolution.gif)
 
 ### Counts within 1 kpc vs time (toy)
 
