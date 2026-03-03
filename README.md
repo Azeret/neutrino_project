@@ -135,11 +135,14 @@ and that **~1000 RSGs have been cataloged** in the Milky Way (catalog completene
 
 With the default toy settings in this repo (Kroupa IMF, `SFR=2 Msun/yr`, `t_obs=20 Myr`, `R=1 kpc`):
 - expected **RSGs in the whole MW** (mass range covered by the PARSEC phase CSV, 12–35 Msun) are **~6000**
-- expected **RSGs within 1 kpc** are **~6** (same order as the ~10 nearby RSGs mentioned in the paper)
-- expected **C-burning RSGs within 1 kpc** are **~0.06** (so it is unlikely to have one very nearby at any given time)
+- expected **RSGs within 1 kpc** are **~9–10** (same order as the ~10 nearby RSGs mentioned in the paper)
+- expected **C-burning RSGs within 1 kpc** are **~0.09** (so it is unlikely to have one very nearby at any given time)
 
 This agreement is only order-of-magnitude: the phase definitions here are intentionally simple, and the
 mass range is limited to what we have PARSEC phase windows for.
+
+In addition, the current MW spatial parameters imply a present-day local SFR surface density of
+order `~10^-3 Msun/yr/kpc^2` within 1 kpc of the Sun, consistent with Gaia-based estimates.
 
 ## Data files
 

@@ -245,6 +245,7 @@ def plot_mw_snapshot_map(
     sun_xy_kpc: tuple[float, float] = (-8.2, 0.0),
     radius_kpc: float = 1.0,
     max_points: int = 50_000,
+    inset_zoom_kpc: float = 2.5,
 ) -> None:
     """
     2D Milky Way disk snapshot (toy), with colors:
@@ -270,18 +271,8 @@ def plot_mw_snapshot_map(
 
     rng = np.random.default_rng(seed + 12345)
     idx = np.arange(x.size)
-    # Keep all local stars so the within-1kpc circle is visually meaningful.
-    dist_all = np.sqrt((x - sun_xy_kpc[0]) ** 2 + (y - sun_xy_kpc[1]) ** 2)
-    idx_local = np.where(dist_all <= radius_kpc)[0]
-    idx_far = np.where(dist_all > radius_kpc)[0]
     if idx.size > max_points:
-        if idx_local.size >= int(max_points):
-            idx = idx_local
-        else:
-            n_far = int(max_points) - int(idx_local.size)
-            if idx_far.size > n_far:
-                idx_far = rng.choice(idx_far, size=int(n_far), replace=False)
-            idx = np.concatenate([idx_local, idx_far])
+        idx = rng.choice(idx, size=max_points, replace=False)
         x, y = x[idx], y[idx]
         dead = dead[idx]
         other_alive = other_alive[idx]
@@ -312,6 +303,33 @@ def plot_mw_snapshot_map(
     ax.set_xlim(-16, 16)
     ax.set_ylim(-16, 16)
     ax.legend(frameon=False, fontsize=8, loc="upper right")
+
+    # Inset zoom on the Solar neighborhood (uses the full, non-downsampled catalog locally).
+    dist_all = np.sqrt((cat.x_kpc - sx) ** 2 + (cat.y_kpc - sy) ** 2)
+    idx_inset = dist_all <= float(inset_zoom_kpc)
+    if idx_inset.any():
+        xi = cat.x_kpc[idx_inset]
+        yi = cat.y_kpc[idx_inset]
+        alive_i = cat.alive[idx_inset]
+        rsg_i = cat.is_rsg[idx_inset]
+        cburn_rsg_i = rsg_i & cat.is_cburn[idx_inset]
+        dead_i = ~alive_i
+        other_alive_i = alive_i & ~rsg_i
+        rsg_only_i = rsg_i & ~cburn_rsg_i
+
+        axin = ax.inset_axes([0.04, 0.60, 0.36, 0.36])
+        axin.scatter(xi[dead_i], yi[dead_i], s=7, color="black", alpha=0.50, rasterized=True)
+        axin.scatter(xi[other_alive_i], yi[other_alive_i], s=7, color="#f2c84b", alpha=0.35, rasterized=True)
+        axin.scatter(xi[rsg_only_i], yi[rsg_only_i], s=14, color="#d62728", alpha=0.90, rasterized=True)
+        axin.scatter(xi[cburn_rsg_i], yi[cburn_rsg_i], s=26, color="#1f77b4", alpha=0.98, rasterized=True)
+        axin.scatter([sx], [sy], s=70, color="cyan", marker="*", rasterized=True)
+        axin.add_patch(plt.Circle((sx, sy), radius_kpc, color="cyan", fill=False, lw=1.6, ls="--", alpha=0.9))
+        axin.set_xlim(sx - inset_zoom_kpc, sx + inset_zoom_kpc)
+        axin.set_ylim(sy - inset_zoom_kpc, sy + inset_zoom_kpc)
+        axin.set_xticks([])
+        axin.set_yticks([])
+        axin.set_title(f"Zoom (≤{inset_zoom_kpc:g} kpc)", fontsize=8)
+
     fig.tight_layout()
     fig.savefig(out_png, dpi=200)
     plt.close(fig)

@@ -263,6 +263,7 @@ def render_mw_evolution_frames(
     radius_kpc: float = 1.0,
     max_points: int = 60_000,
     seed: int = 1,
+    inset_zoom_kpc: float = 2.5,
 ) -> None:
     """
     Render a sequence of PNG frames for the evolving MW population map.
@@ -278,21 +279,10 @@ def render_mw_evolution_frames(
 
     rng = np.random.default_rng(seed + 2026)
 
-    # Keep *all* particles within the local sphere so the "within 1 kpc" counts
-    # in the visualization are not wiped out by global downsampling.
-    dist_all = np.sqrt((pop.x_kpc - sun_xy_kpc[0]) ** 2 + (pop.y_kpc - sun_xy_kpc[1]) ** 2)
-    idx_local = np.where(dist_all <= radius_kpc)[0]
-    idx_far = np.where(dist_all > radius_kpc)[0]
-
     if max_points <= 0:
         raise ValueError("max_points must be positive")
-    if idx_local.size >= int(max_points):
-        idx = idx_local
-    else:
-        n_far = int(max_points) - int(idx_local.size)
-        if idx_far.size > n_far:
-            idx_far = rng.choice(idx_far, size=int(n_far), replace=False)
-        idx = np.concatenate([idx_local, idx_far])
+    idx_all = np.arange(pop.n)
+    idx = idx_all if idx_all.size <= int(max_points) else rng.choice(idx_all, size=int(max_points), replace=False)
 
     x = pop.x_kpc[idx]
     y = pop.y_kpc[idx]
@@ -301,7 +291,20 @@ def render_mw_evolution_frames(
     rsg_start = pop.rsg_start_myr[idx]
     cb0 = pop.cburn_start_myr[idx]
     cb1 = pop.cburn_end_myr[idx]
-    dist = dist_all[idx]
+    dist = np.sqrt((x - sun_xy_kpc[0]) ** 2 + (y - sun_xy_kpc[1]) ** 2)
+
+    # For the inset, show *all* stars near the Sun without changing the main-panel density.
+    sx, sy = sun_xy_kpc
+    dist_all = np.sqrt((pop.x_kpc - sx) ** 2 + (pop.y_kpc - sy) ** 2)
+    idx_inset = np.where(dist_all <= float(inset_zoom_kpc))[0]
+    xi = pop.x_kpc[idx_inset]
+    yi = pop.y_kpc[idx_inset]
+    birth_i = pop.birth_myr[idx_inset]
+    lifetime_i = pop.lifetime_myr[idx_inset]
+    rsg_start_i = pop.rsg_start_myr[idx_inset]
+    cb0_i = pop.cburn_start_myr[idx_inset]
+    cb1_i = pop.cburn_end_myr[idx_inset]
+    dist_i = dist_all[idx_inset]
 
     from .plots import _ensure_matplotlib_cache_dirs
 
@@ -309,8 +312,6 @@ def render_mw_evolution_frames(
     import matplotlib.pyplot as plt
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    sx, sy = sun_xy_kpc
-
     for k, t in enumerate(t_grid_myr.tolist()):
         age = float(t) - birth
         born = age >= 0.0
@@ -322,6 +323,16 @@ def render_mw_evolution_frames(
         rsg_only = rsg & ~cburn_rsg
         other_alive = alive & ~rsg
         within = dist <= radius_kpc
+
+        age2 = float(t) - birth_i
+        born2 = age2 >= 0.0
+        alive2 = born2 & (age2 < lifetime_i)
+        dead2 = born2 & ~alive2
+        rsg2 = alive2 & (age2 >= rsg_start_i)
+        cburn_rsg2 = rsg2 & np.isfinite(cb0_i) & np.isfinite(cb1_i) & (age2 >= cb0_i) & (age2 <= cb1_i)
+        rsg_only2 = rsg2 & ~cburn_rsg2
+        other_alive2 = alive2 & ~rsg2
+        within2 = dist_i <= radius_kpc
 
         fig, ax = plt.subplots(figsize=(7.2, 7.2))
         ax.scatter(x[dead], y[dead], s=6, color="black", alpha=0.45, label="dead (BH/remnant)", rasterized=True)
@@ -365,6 +376,30 @@ def render_mw_evolution_frames(
             bbox=dict(boxstyle="round,pad=0.25", facecolor="white", alpha=0.75, edgecolor="0.8"),
         )
         ax.legend(frameon=False, fontsize=8, loc="upper right")
+
+        # Inset zoom on the Solar neighborhood (does not change main-panel sampling).
+        axin = ax.inset_axes([0.04, 0.60, 0.36, 0.36])
+        axin.scatter(xi[dead2], yi[dead2], s=7, color="black", alpha=0.50, rasterized=True)
+        axin.scatter(xi[other_alive2], yi[other_alive2], s=7, color="#f2c84b", alpha=0.35, rasterized=True)
+        axin.scatter(xi[rsg_only2], yi[rsg_only2], s=14, color="#d62728", alpha=0.90, rasterized=True)
+        axin.scatter(xi[cburn_rsg2], yi[cburn_rsg2], s=26, color="#1f77b4", alpha=0.98, rasterized=True)
+        axin.scatter([sx], [sy], s=70, color="cyan", marker="*", rasterized=True)
+        axin.add_patch(plt.Circle((sx, sy), radius_kpc, color="cyan", fill=False, lw=1.6, ls="--", alpha=0.9))
+        axin.set_xlim(sx - inset_zoom_kpc, sx + inset_zoom_kpc)
+        axin.set_ylim(sy - inset_zoom_kpc, sy + inset_zoom_kpc)
+        axin.set_xticks([])
+        axin.set_yticks([])
+        axin.set_title(f"Zoom (≤{inset_zoom_kpc:g} kpc)", fontsize=8)
+        axin.text(
+            0.02,
+            0.02,
+            f"within {radius_kpc:g} kpc:\nRSG={int((rsg2 & within2).sum())}\nC-burn RSG={int((cburn_rsg2 & within2).sum())}",
+            transform=axin.transAxes,
+            fontsize=7.5,
+            va="bottom",
+            ha="left",
+            bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.75, edgecolor="0.85"),
+        )
 
         fig.tight_layout()
         fig.savefig(out_dir / f"frame_{k:04d}.png", dpi=160)

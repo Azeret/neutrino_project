@@ -18,7 +18,10 @@ class MWYoungSFParams:
     This is intentionally simple and is meant for order-of-magnitude estimates.
     """
 
-    R_scale: float = 2.6
+    # Radial scale length of the *young star formation* surface density (kpc).
+    # Set somewhat shorter than older stellar disk scale lengths; tuned so that
+    # the toy model gives ~O(10) RSGs within 1 kpc for the default SFR/phase setup.
+    R_scale: float = 1.8
     R_min: float = 0.5
     R_max: float = 15.0
     m_arms: int = 4
@@ -26,7 +29,10 @@ class MWYoungSFParams:
     sigma_arm: float = 0.30
     f_arm: float = 0.65
     R_ref: float = 5.0
+    # Phase offset for the arm pattern (purely a visualization choice in this toy model).
     phi0_deg: float = 20.0
+    arm_R_min: float = 3.0
+    arm_R_max: float = 13.0
     ring_R0: float = 4.5
     ring_sigma: float = 0.5
     f_ring: float = 0.10
@@ -97,21 +103,21 @@ def sample_mw_young_xy(
 
     if n_arm > 0:
         arm_idx = rng.integers(0, p.m_arms, n_arm)
-        n_turns = 1.5
-        dphi_arm = n_turns * 2.0 * np.pi / p.m_arms
-        R_min_arm, R_max_arm = 3.0, 13.0
+        R_min_arm, R_max_arm = float(p.arm_R_min), float(p.arm_R_max)
 
+        # Sample arms so that their *radial* distribution roughly follows the same exponential
+        # as the disk, then place each star on the spiral centerline for that radius.
+        # (This avoids some pathological densities that can appear if we sample uniformly in phi.)
+        R_center = sample_exponential_R(n_arm, p.R_scale, R_min_arm, R_max_arm, rng)
         phi_arm0 = phi0 + 2.0 * np.pi * arm_idx / p.m_arms
-        phi_arm = phi_arm0 + rng.uniform(0.0, dphi_arm, n_arm)
-        R_center = log_spiral_R(phi_arm, p.R_ref, pitch, phi_arm0)
+        phi_center = phi_arm0 + (1.0 / np.tan(pitch)) * np.log(R_center / p.R_ref)
+
+        # Scatter around the arm (toy) by perturbing radius.
         R_arm = R_center + rng.normal(0.0, p.sigma_arm, n_arm)
+        R_arm = np.clip(R_arm, R_min_arm, R_max_arm)
 
-        bad = (R_arm <= R_min_arm) | (R_arm >= R_max_arm)
-        if bad.any():
-            R_arm[bad] = sample_exponential_R(int(bad.sum()), p.R_scale, R_min_arm, R_max_arm, rng)
-
-        x[idx : idx + n_arm] = R_arm * np.cos(phi_arm)
-        y[idx : idx + n_arm] = R_arm * np.sin(phi_arm)
+        x[idx : idx + n_arm] = R_arm * np.cos(phi_center)
+        y[idx : idx + n_arm] = R_arm * np.sin(phi_center)
 
     perm = rng.permutation(n)
     return x[perm], y[perm]
@@ -131,4 +137,3 @@ def estimate_within_probability(
     sx, sy = sun_xy_kpc
     dist = np.sqrt((x - sx) ** 2 + (y - sy) ** 2)
     return float((dist <= radius_kpc).mean())
-

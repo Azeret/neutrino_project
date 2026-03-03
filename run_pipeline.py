@@ -114,7 +114,7 @@ class Config:
     anim_t_max_myr: float = 20.0
     anim_dt_myr: float = 0.25
     anim_max_points: int = 40_000
-    anim_fps: int = 4
+    anim_fps: int = 2
     anim_seed: int = 3
     anim_make_mp4: bool = True
     anim_make_gif: bool = True
