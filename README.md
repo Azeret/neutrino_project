@@ -128,6 +128,19 @@ Important: **backgrounds, thresholds, efficiencies are not included**, so these 
 
 The detector list is intentionally “hopeful”: it includes concepts like THEIA-like WbLS detector masses. In this toy ES-only model, larger fiducial mass always increases signal linearly, but real detectability is usually background-limited at sub-MeV energies.
 
+## Quick sanity check vs `neutrinos.pdf`
+
+`neutrinos.pdf` (Seong et al. 2025 draft) notes that **~10 RSGs are within 1 kpc** (see their Table 1),
+and that **~1000 RSGs have been cataloged** in the Milky Way (catalog completeness is an issue).
+
+With the default toy settings in this repo (Kroupa IMF, `SFR=2 Msun/yr`, `t_obs=20 Myr`, `R=1 kpc`):
+- expected **RSGs in the whole MW** (mass range covered by the PARSEC phase CSV, 12–35 Msun) are **~6000**
+- expected **RSGs within 1 kpc** are **~6** (same order as the ~10 nearby RSGs mentioned in the paper)
+- expected **C-burning RSGs within 1 kpc** are **~0.06** (so it is unlikely to have one very nearby at any given time)
+
+This agreement is only order-of-magnitude: the phase definitions here are intentionally simple, and the
+mass range is limited to what we have PARSEC phase windows for.
+
 ## Data files
 
 The repo includes small precomputed phase-window tables:
